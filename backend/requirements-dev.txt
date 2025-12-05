@@ -1,0 +1,29 @@
+# Development Requirements
+# Use this for local development
+
+# Include production requirements
+-r requirements-production.txt
+
+# Database tools
+alembic==1.13.1
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+httpx==0.26.0
+
+# Code Quality
+black==23.12.0
+flake8==7.0.0
+mypy==1.8.0
+isort==5.13.2
+
+# Development tools
+ipython==8.20.0
+jupyter==1.0.0
+
+# Optional: Redis for caching (dev only)
+redis==5.0.1
+hiredis==2.3.2
+

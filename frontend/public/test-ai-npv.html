@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test AI NPV Per-Share</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #111827;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #6d28d9;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            display: none;
+        }
+        .results.show {
+            display: block;
+        }
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+        .error.show {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #6b7280;
+        }
+        .info-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .npv-result {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 15px 0;
+        }
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI NPV Calculator v0.3.2 - Per-Share Test (Debug)</h1>
+        <p class="subtitle">Testing per-share investment logic with detailed console logging</p>
+
+        <div class="input-group">
+            <label for="ticker">Stock Ticker</label>
+            <input type="text" id="ticker" placeholder="e.g., AAPL" value="AAPL">
+        </div>
+
+        <div class="input-group">
+            <label for="investment">Investment Amount ($)</label>
+            <input type="number" id="investment" placeholder="e.g., 10000" value="10000">
+        </div>
+
+        <div class="input-group">
+            <label for="return">Required Return (%)</label>
+            <input type="number" id="return" placeholder="e.g., 10" value="10" step="0.1">
+        </div>
+
+        <button id="calculate-btn" onclick="runTest()">Run Test</button>
+
+        <div class="error" id="error-msg"></div>
+
+        <div class="results" id="results">
+            <h2>Results</h2>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        async function runTest() {
+            const ticker = document.getElementById('ticker').value.trim().toUpperCase();
+            const investment = parseFloat(document.getElementById('investment').value);
+            const requiredReturn = parseFloat(document.getElementById('return').value);
+
+            const errorDiv = document.getElementById('error-msg');
+            const resultsDiv = document.getElementById('results');
+            const resultsContent = document.getElementById('results-content');
+            const btn = document.getElementById('calculate-btn');
+
+            // Clear previous results
+            errorDiv.classList.remove('show');
+            resultsDiv.classList.remove('show');
+            resultsContent.innerHTML = '';
+
+            // Validate
+            if (!ticker) {
+                showError('Please enter a ticker');
+                return;
+            }
+            if (isNaN(investment) || investment <= 0) {
+                showError('Please enter a valid investment amount');
+                return;
+            }
+            if (isNaN(requiredReturn) || requiredReturn <= 0) {
+                showError('Please enter a valid required return');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Fetching data...';
+
+            try {
+                // Step 1: Fetch per-share data
+                console.log('Step 1: Fetching per-share scenario data...');
+                const scenarioResponse = await fetch(`${API_BASE}/api/ai-npv/fetch-cf-scenarios`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker, years: 5 })
+                });
+
+                if (!scenarioResponse.ok) {
+                    throw new Error(`API error: ${scenarioResponse.status}`);
+                }
+
+                const scenarioData = await scenarioResponse.json();
+                console.log('Scenario data received:', scenarioData);
+
+                const currentPrice = scenarioData.current_price_per_share;
+                const dividendsPerShare = scenarioData.dividends_per_share;
+                const terminalPrice = scenarioData.terminal_price_per_share;
+
+                // Step 2: Calculate shares
+                const shares = investment / currentPrice;
+                console.log(`Step 2: Calculated ${shares.toFixed(4)} shares at $${currentPrice}/share`);
+
+                // Step 3: Build position cash flows
+                const buildCashFlows = (divPerShare, termPrice) => {
+                    const cfs = [];
+                    for (let i = 0; i < divPerShare.length; i++) {
+                        if (i === divPerShare.length - 1) {
+                            // Final year: dividend + terminal price
+                            cfs.push((divPerShare[i] + termPrice) * shares);
+                        } else {
+                            // Intermediate years: dividend only
+                            cfs.push(divPerShare[i] * shares);
+                        }
+                    }
+                    return cfs;
+                };
+
+                const cashFlowsLow = buildCashFlows(dividendsPerShare.low, terminalPrice.low);
+                const cashFlowsBase = buildCashFlows(dividendsPerShare.base, terminalPrice.base);
+                const cashFlowsHigh = buildCashFlows(dividendsPerShare.high, terminalPrice.high);
+
+                console.log('Step 3: Built cash flows:', { low: cashFlowsLow, base: cashFlowsBase, high: cashFlowsHigh });
+
+                btn.textContent = 'Calculating NPV...';
+
+                // Step 4: Calculate NPV for each scenario
+                const calculateNPV = async (cashFlows, scenarioName) => {
+                    const response = await fetch(`${API_BASE}/api/ai-npv/calculate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ticker,
+                            initial_cost: -investment,
+                            required_return: requiredReturn,
+                            cash_flows: cashFlows,
+                            include_sensitivity: false
+                        })
+                    });
+                    if (!response.ok) throw new Error(`Failed to calculate ${scenarioName} NPV`);
+                    return await response.json();
+                };
+
+                const [lowResult, baseResult, highResult] = await Promise.all([
+                    calculateNPV(cashFlowsLow, 'Low'),
+                    calculateNPV(cashFlowsBase, 'Base'),
+                    calculateNPV(cashFlowsHigh, 'High')
+                ]);
+
+                console.log('Step 4: NPV Results:', { low: lowResult, base: baseResult, high: highResult });
+
+                // Step 5: Display results
+                displayResults({
+                    ticker,
+                    investment,
+                    requiredReturn,
+                    currentPrice,
+                    shares,
+                    dividendsPerShare,
+                    terminalPrice,
+                    cashFlows: { low: cashFlowsLow, base: cashFlowsBase, high: cashFlowsHigh },
+                    npv: {
+                        low: lowResult.base_npv.npv,
+                        base: baseResult.base_npv.npv,
+                        high: highResult.base_npv.npv
+                    },
+                    irr: {
+                        low: lowResult.base_npv.irr,
+                        base: baseResult.base_npv.irr,
+                        high: highResult.base_npv.irr
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(`Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Run Test';
+            }
+        }
+
+        function displayResults(data) {
+            const content = `
+                <div class="info-box">
+                    <h3>Investment Summary</h3>
+                    <p><strong>Ticker:</strong> ${data.ticker}</p>
+                    <p><strong>Investment:</strong> $${data.investment.toFixed(2)}</p>
+                    <p><strong>Current Price:</strong> $${data.currentPrice.toFixed(2)}/share</p>
+                    <p><strong>Shares Purchased:</strong> ${data.shares.toFixed(4)} shares</p>
+                    <p><strong>Required Return:</strong> ${data.requiredReturn.toFixed(2)}%</p>
+                </div>
+
+                <h3 style="margin-top: 25px;">NPV Results</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>NPV</th>
+                            <th>IRR</th>
+                            <th>Decision</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Low</strong></td>
+                            <td class="${data.npv.low > 0 ? 'positive' : 'negative'}">
+                                $${data.npv.low.toFixed(2)}
+                            </td>
+                            <td>${data.irr.low ? data.irr.low.toFixed(2) + '%' : 'N/A'}</td>
+                            <td>${data.npv.low > 0 ? '✓ Accept' : '✗ Reject'}</td>
+                        </tr>
+                        <tr style="background: #fafafa;">
+                            <td><strong>Base</strong></td>
+                            <td class="${data.npv.base > 0 ? 'positive' : 'negative'}">
+                                <strong>$${data.npv.base.toFixed(2)}</strong>
+                            </td>
+                            <td><strong>${data.irr.base ? data.irr.base.toFixed(2) + '%' : 'N/A'}</strong></td>
+                            <td><strong>${data.npv.base > 0 ? '✓ Accept' : '✗ Reject'}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>High</strong></td>
+                            <td class="${data.npv.high > 0 ? 'positive' : 'negative'}">
+                                $${data.npv.high.toFixed(2)}
+                            </td>
+                            <td>${data.irr.high ? data.irr.high.toFixed(2) + '%' : 'N/A'}</td>
+                            <td>${data.npv.high > 0 ? '✓ Accept' : '✗ Reject'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 style="margin-top: 25px;">Cash Flow Breakdown (Base Scenario)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Dividend/Share</th>
+                            <th>Terminal Price/Share</th>
+                            <th>Total CF</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Year 0</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td class="negative">-$${data.investment.toFixed(2)}</td>
+                        </tr>
+                        ${data.dividendsPerShare.base.map((div, idx) => {
+                            const isLast = idx === data.dividendsPerShare.base.length - 1;
+                            const termPrice = isLast ? data.terminalPrice.base : 0;
+                            return `
+                                <tr>
+                                    <td>Year ${idx + 1}</td>
+                                    <td>$${div.toFixed(2)}</td>
+                                    <td>${isLast ? '$' + termPrice.toFixed(2) : '-'}</td>
+                                    <td class="positive">$${data.cashFlows.base[idx].toFixed(2)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+
+                <div class="info-box" style="margin-top: 25px; background: ${data.npv.base > 0 ? '#ecfdf5' : '#fef2f2'}; border-color: ${data.npv.base > 0 ? '#10b981' : '#ef4444'};">
+                    <h3>Recommendation (Base Case)</h3>
+                    <div class="npv-result ${data.npv.base > 0 ? 'positive' : 'negative'}">
+                        ${data.npv.base > 0 ? '✓ ACCEPT' : '✗ REJECT'} INVESTMENT
+                    </div>
+                    <p>${data.npv.base > 0
+                        ? `The investment exceeds your ${data.requiredReturn}% required return with an NPV of $${data.npv.base.toFixed(2)} and IRR of ${data.irr.base.toFixed(2)}%.`
+                        : `The investment does not meet your ${data.requiredReturn}% required return. NPV is negative at $${data.npv.base.toFixed(2)}.`
+                    }</p>
+                </div>
+            `;
+
+            document.getElementById('results-content').innerHTML = content;
+            document.getElementById('results').classList.add('show');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-msg');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(lsof:*)",
+      "Bash(pip3 install:*)",
+      "Bash(curl:*)",
+      "Read(//Users/artem/Downloads/drive-download-20251002T211135Z-1-001/**)",
+      "Bash(xargs kill:*)",
+      "Bash(tree:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(pip3 list:*)",
+      "Bash(open:*)",
+      "Bash(node:*)",
+      "Bash(python3 -m uvicorn:*)",
+      "Bash(python3:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

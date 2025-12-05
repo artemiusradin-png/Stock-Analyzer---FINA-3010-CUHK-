@@ -1,0 +1,40 @@
+# Production Requirements (Optimized - ~80MB vs 250MB+)
+# Use this in production/Docker to minimize image size
+
+# FastAPI & Server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+gunicorn==21.2.0
+
+# Database (PostgreSQL/Supabase)
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+
+# Essential Data Processing
+numpy==1.26.3
+pandas==2.1.4
+scipy==1.11.4
+
+# Portfolio Optimization
+cvxpy==1.4.1
+
+# Finance APIs
+finnhub-python==2.4.19
+requests==2.31.0
+yfinance==0.2.35
+
+# AI/NLP
+openai==1.6.0
+textblob==0.17.1
+vaderSentiment==3.3.2
+
+# Utilities
+python-dotenv==1.0.0
+python-dateutil==2.8.2
+
+# Performance
+python-jose[cryptography]==3.3.0  # For JWT (if using Supabase)
+

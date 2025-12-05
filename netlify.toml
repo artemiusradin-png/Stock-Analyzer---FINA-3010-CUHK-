@@ -1,0 +1,9 @@
+[build]
+  publish = "frontend/public"
+  command = ""
+
+# Uncomment and adjust if you need SPA-style routing
+#[[redirects]]
+#  from = "/*"
+#  to = "/index.html"
+#  status = 200

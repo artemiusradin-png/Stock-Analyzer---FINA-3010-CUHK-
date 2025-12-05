@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: arqam-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Database (use Supabase URL or local PostgreSQL)
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/arqam}
+      
+      # API Keys (set in .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - FRED_API_KEY=${FRED_API_KEY}
+      - EOD_API_KEY=${EOD_API_KEY}
+      
+      # Application settings
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    depends_on:
+      - db
+    volumes:
+      # Mount for development (comment out for production)
+      - ./backend/app:/app/app
+    restart: unless-stopped
+    networks:
+      - arqam-network
+
+  # PostgreSQL Database (optional - use if not using Supabase)
+  db:
+    image: postgres:15-alpine
+    container_name: arqam-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=arqam
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - arqam-network
+
+  # Frontend (Nginx)
+  frontend:
+    image: nginx:alpine
+    container_name: arqam-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/public:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - arqam-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  arqam-network:
+    driver: bridge
+

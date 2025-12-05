@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #f8fafc;
+        }
+        .test-card {
+            background: #1f2937;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { border-left: 4px solid #10b981; }
+        .error { border-left: 4px solid #ef4444; }
+        h1 { color: #6366f1; }
+        h2 { color: #60a5fa; font-size: 18px; }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status.ok { background: #10b981; color: white; }
+        .status.fail { background: #ef4444; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🔧 API Connection Test</h1>
+    <p>Test all API endpoints to verify they're working correctly.</p>
+
+    <!-- Backend Health -->
+    <div class="test-card">
+        <h2>1. Backend Health Check</h2>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="health-result" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- DCF Test -->
+    <div class="test-card">
+        <h2>2. DCF Valuation (AAPL)</h2>
+        <button onclick="testDCF()">Test DCF Endpoint</button>
+        <div id="dcf-result" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Sentiment Test -->
+    <div class="test-card">
+        <h2>3. Sentiment Analysis (AAPL)</h2>
+        <button onclick="testSentiment()">Test Sentiment Endpoint</button>
+        <div id="sentiment-result" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Portfolio Test -->
+    <div class="test-card">
+        <h2>4. Portfolio Optimization (AAPL, MSFT)</h2>
+        <button onclick="testPortfolio()">Test Portfolio Endpoint</button>
+        <div id="portfolio-result" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- All Tests -->
+    <div class="test-card" style="background: #111827;">
+        <button onclick="runAllTests()" style="background: #10b981;">▶ Run All Tests</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        function showResult(elementId, data, isError = false) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = 'result ' + (isError ? 'error' : 'success');
+            el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResult('health-result', {
+                    status: 'SUCCESS',
+                    response: data
+                });
+            } catch (error) {
+                showResult('health-result', {
+                    status: 'ERROR',
+                    error: error.message
+                }, true);
+            }
+        }
+
+        async function testDCF() {
+            try {
+                const response = await fetch(`${API_BASE}/api/valuations/calculate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticker: 'AAPL',
+                        forecast_period: 10
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                showResult('dcf-result', {
+                    status: 'SUCCESS',
+                    ticker: data.ticker,
+                    current_price: data.current_price,
+                    implied_price: data.implied_price,
+                    upside_downside: data.upside_downside,
+                    wacc: data.wacc,
+                    enterprise_value: data.enterprise_value,
+                    equity_value: data.equity_value,
+                    projections_count: data.projections?.length || 0
+                });
+            } catch (error) {
+                showResult('dcf-result', {
+                    status: 'ERROR',
+                    error: error.message
+                }, true);
+            }
+        }
+
+        async function testSentiment() {
+            try {
+                const response = await fetch(`${API_BASE}/api/sentiment/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticker: 'AAPL',
+                        days: 30
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                showResult('sentiment-result', {
+                    status: 'SUCCESS',
+                    ticker: data.ticker,
+                    overall_sentiment: data.overall_sentiment,
+                    sentiment_trend: data.sentiment_trend,
+                    news_volume_7d: data.news_volume_7d,
+                    news_volume_30d: data.news_volume_30d,
+                    positive_ratio: data.positive_ratio,
+                    confidence: data.confidence
+                });
+            } catch (error) {
+                showResult('sentiment-result', {
+                    status: 'ERROR',
+                    error: error.message
+                }, true);
+            }
+        }
+
+        async function testPortfolio() {
+            try {
+                const response = await fetch(`${API_BASE}/api/portfolios/optimize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        assets: [
+                            { ticker: 'AAPL' },
+                            { ticker: 'MSFT' }
+                        ],
+                        strategy: 'max_sharpe',
+                        lookback_days: 252,
+                        risk_free_rate: 0.045
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                showResult('portfolio-result', {
+                    status: 'SUCCESS',
+                    expected_return: data.expected_return,
+                    volatility: data.volatility,
+                    sharpe_ratio: data.sharpe_ratio,
+                    weights: data.weights
+                });
+            } catch (error) {
+                showResult('portfolio-result', {
+                    status: 'ERROR (Known backend bug)',
+                    error: error.message,
+                    note: 'This is a backend data fetching issue, not frontend'
+                }, true);
+            }
+        }
+
+        async function runAllTests() {
+            await testHealth();
+            await new Promise(r => setTimeout(r, 500));
+            await testDCF();
+            await new Promise(r => setTimeout(r, 500));
+            await testSentiment();
+            await new Promise(r => setTimeout(r, 500));
+            await testPortfolio();
+        }
+
+        // Auto-run health check on load
+        window.addEventListener('load', testHealth);
+    </script>
+</body>
+</html>

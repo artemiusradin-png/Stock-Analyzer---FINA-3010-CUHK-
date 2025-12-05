@@ -1,0 +1,2541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="dcf-api-base" content="http://127.0.0.1:5050/api">
+    <title>Project NPV - ARQAM Program</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- CSS Links -->
+    <link rel="stylesheet" href="css/variables.css?v=49">
+    <link rel="stylesheet" href="css/base.css?v=49">
+    <link rel="stylesheet" href="css/layout.css?v=49">
+    <link rel="stylesheet" href="css/components.css?v=49">
+    <link rel="stylesheet" href="css/animations.css?v=49">
+    <link rel="stylesheet" href="css/responsive.css?v=49">
+    <link rel="stylesheet" href="css/project-npv-overrides.css?v=1">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <script>
+      // Automatic API configuration - tries multiple backends in order
+      window.API_BASE_URL = 'http://localhost:8000';
+
+      // Auto-detect and test backend connection on page load
+      async function detectBackend() {
+        const backends = [
+          'http://localhost:8000',
+          'http://localhost:5050',
+          'http://127.0.0.1:8000',
+          'http://127.0.0.1:5050'
+        ];
+
+        for (const url of backends) {
+          try {
+            const response = await fetch(`${url}/health`, {
+              method: 'GET',
+              signal: AbortSignal.timeout(2000)
+            });
+            if (response.ok) {
+              window.API_BASE_URL = url;
+              console.log(`Backend connected: ${url}`);
+              return url;
+            }
+          } catch (e) {
+            console.log(`Trying next backend...`);
+          }
+        }
+        console.warn('No backend detected. Using default: http://localhost:8000');
+        return 'http://localhost:8000';
+      }
+
+      // Detect backend when page loads
+      detectBackend();
+    </script>
+
+    <style>
+        /* ============================================
+           DESIGN SYSTEM VARIABLES
+           ============================================ */
+        :root {
+            /* Colors */
+            --color-bg-primary: #ffffff;
+            --color-bg-secondary: #f9fafb;
+            --color-bg-tertiary: #f2f2f2;
+            --color-text-primary: #0f0f0f;
+            --color-text-secondary: #1f1f1f;
+            --color-text-tertiary: #5a5a5a;
+            --color-text-muted: #6b7280;
+            --color-text-light: #9ca3af;
+            --color-border-primary: #0f0f0f;
+            --color-border-secondary: #1a1a1a;
+            --color-border-tertiary: #e5e5e5;
+            --color-border-light: #e0e0e0;
+            --color-accent-success: #10b981;
+            --color-accent-error: #ef4444;
+            --color-accent-warning: #f59e0b;
+            
+            /* Spacing Scale */
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 0.75rem;
+            --spacing-lg: 1rem;
+            --spacing-xl: 1.25rem;
+            --spacing-2xl: 1.5rem;
+            --spacing-3xl: 2rem;
+            --spacing-4xl: 2.5rem;
+            
+            /* Typography Scale */
+            --font-size-xs: 0.75rem;
+            --font-size-sm: 0.8125rem;
+            --font-size-base: 0.875rem;
+            --font-size-md: 0.9375rem;
+            --font-size-lg: 1rem;
+            --font-size-xl: 1.125rem;
+            --font-size-2xl: 1.5rem;
+            --font-size-3xl: 3.5rem;
+            
+            /* Border Radius */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 11px;
+            --radius-xl: 12px;
+            
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(15, 15, 15, 0.08);
+            --shadow-md: 0 4px 12px rgba(15, 15, 15, 0.12);
+            --shadow-lg: 0 2px 8px rgba(15, 15, 15, 0.15);
+        }
+
+        /* Monochrome palette: crisp black and white */
+        body {
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body::before,
+        .particles-container,
+        .particle {
+            display: none !important;
+        }
+
+        .app-container {
+            background: #ffffff;
+            opacity: 0;
+            visibility: hidden;
+            animation: websiteFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Force content visible - will be overridden by splash if it exists */
+        .app-container.force-visible {
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: block !important;
+        }
+
+        @keyframes websiteFadeIn {
+            0% {
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+            }
+        }
+
+        .main-content {
+            background: #ffffff !important;
+        }
+
+        .content-grid {
+            background: #ffffff;
+        }
+
+        .header {
+            background: #ffffff;
+            border-bottom: none;
+            border-top: none;
+        }
+
+        .header h1 {
+            color: #0f0f0f;
+            animation: slideInFromLeft 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            opacity: 0;
+        }
+
+        .header p {
+            color: #5a5a5a;
+            animation: slideInFromRight 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideInFromLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInFromRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .panel-title,
+        .section-title {
+            color: var(--color-text-primary);
+            font-size: var(--font-size-lg);
+        }
+
+        .panel-subtitle,
+        .nav-link,
+        .status-indicator,
+        .card-label {
+            color: var(--color-text-tertiary);
+            font-size: var(--font-size-base);
+        }
+
+        .nav-bar {
+            background: var(--color-bg-primary);
+            border-bottom: 1px solid var(--color-border-tertiary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            transition: color 0.15s ease, border-bottom-color 0.15s ease;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: var(--color-text-primary);
+            border-bottom-color: var(--color-border-primary);
+        }
+
+        .panel {
+            background: var(--color-bg-primary);
+            border: 2px solid var(--color-border-primary);
+            color: var(--color-text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        #npv-calculator-tab .panel {
+            border: 2px solid var(--color-border-primary);
+            box-shadow: var(--shadow-md);
+        }
+
+        .input {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border-secondary);
+            color: var(--color-text-primary);
+        }
+
+        .input:focus {
+            border-color: var(--color-border-primary);
+            box-shadow: 0 0 0 3px rgba(15, 15, 15, 0.1);
+            outline: none;
+        }
+
+        .input-label {
+            color: var(--color-text-secondary);
+        }
+
+        .calculate-button {
+            background: var(--color-border-primary);
+            color: var(--color-bg-primary);
+            border: 1px solid var(--color-border-primary);
+            transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+        }
+
+        .calculate-button:hover {
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .calculate-button:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .data-table {
+            background: #ffffff;
+        }
+
+        .data-table th {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-primary);
+            border-bottom: 1px solid var(--color-border-secondary);
+        }
+
+        .data-table td {
+            border-bottom: 1px solid var(--color-border-light);
+            color: var(--color-text-primary);
+        }
+
+        .data-table tbody tr:nth-child(even) {
+            background: var(--color-bg-secondary);
+        }
+
+        .data-table tbody tr:hover {
+            background: #f7f7f7;
+        }
+
+        .data-table td.number {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .summary-card {
+            background: #fdfdfd;
+            border: 1px solid var(--color-border-secondary);
+        }
+
+        .summary-card .card-value {
+            color: var(--color-text-primary);
+        }
+
+        .npv-tabs-container {
+            max-width: 1600px;
+            margin: 0 auto 0;
+            padding: 0 1rem;
+        }
+
+        .npv-tabs-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--spacing-lg);
+            border-bottom: 2px solid var(--color-border-secondary);
+            flex-wrap: wrap;
+        }
+
+        .npv-tabs {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .npv-tab-btn {
+            padding: var(--spacing-md) var(--spacing-2xl);
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border-secondary);
+            border-bottom: 2px solid transparent;
+            color: var(--color-text-secondary);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: relative;
+            overflow: visible;
+        }
+
+        .npv-tab-btn:hover {
+            background: #f5f5f5;
+            transform: translateY(-1px);
+        }
+
+        .npv-tab-btn:active {
+            transform: translateY(0);
+        }
+
+        .npv-tab-btn.active {
+            background: var(--color-border-primary);
+            color: var(--color-bg-primary);
+            border-color: var(--color-border-primary);
+        }
+
+        .npv-tab-content {
+            display: none;
+            padding-top: var(--spacing-xl);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .npv-tab-content.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .npv-tab-content .content-grid {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        /* No extra top padding on the valuation view */
+        #npv-calculator-tab {
+            padding-top: 0;
+        }
+
+        /* Sub-tab Button Styles - Interconnected Design V2 */
+        .npv-sub-tabs-container {
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: -0.2rem;
+            animation: subTabSlide 0.35s ease;
+        }
+
+        .npv-sub-tabs-buttons {
+            display: inline-flex;
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xs);
+            gap: var(--spacing-xs);
+            position: relative;
+            border: 1px solid var(--color-border-tertiary);
+        }
+
+        .npv-sub-tab-btn-new {
+            padding: 0.625rem calc(1.5rem + 1px);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm);
+            color: var(--color-text-muted);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: none;
+            letter-spacing: 0;
+            position: relative;
+            flex: 1;
+            z-index: 1;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .npv-sub-tab-btn-new.fade-in {
+            animation: fadeInSlideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .npv-sub-tab-btn-new.fade-out {
+            animation: fadeOutSlideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes fadeInSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOutSlideUp {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes slideInFromLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOutToLeft {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+        }
+
+        .ai-toggle-pill.slide-in {
+            animation: slideInFromLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .ai-toggle-pill.slide-out {
+            animation: slideOutToLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .npv-sub-tab-btn-new::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--color-bg-primary);
+            border: 2px solid var(--color-border-primary);
+            border-radius: var(--radius-sm);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: -1;
+        }
+
+        .npv-sub-tab-btn-new:hover {
+            color: var(--color-text-primary);
+            transform: translateY(-1px);
+        }
+
+        .npv-sub-tab-btn-new:active {
+            transform: translateY(0);
+        }
+
+        .npv-sub-tab-btn-new:hover::before {
+            opacity: 0.5;
+            transform: scale(1);
+        }
+
+        .npv-sub-tab-btn-new.active::before {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .npv-sub-tab-btn-new.active {
+            color: var(--color-text-primary);
+        }
+
+        .npv-sub-tab-btn-new.active::before {
+            opacity: 1;
+            transform: scale(1);
+            background: var(--color-bg-primary);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .npv-sub-tab-content {
+            display: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .npv-sub-tab-content.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #npv-error-message,
+        #dcf-error-message,
+        #portfolio-error-message,
+        #sentiment-error-message,
+        #sensitivity-error-message {
+            background: #fef2f2;
+            border: 1px solid #ef4444;
+            color: #b91c1c;
+        }
+
+        .site-footer {
+            background: #ffffff;
+            border-top: 1px solid #e5e5e5;
+            color: #5a5a5a;
+            padding: 2rem 1rem 1rem 1rem;
+        }
+
+        .site-footer .about-links {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .site-footer .about-links li {
+            margin-bottom: 0;
+        }
+
+        .footer-left a {
+            color: inherit;
+            text-decoration: none;
+            display: inline;
+            font-weight: 600;
+            background-image: linear-gradient(0deg, #0f0f0f, #0f0f0f);
+            background-size: 0% 2px;
+            background-position: 0 100%;
+            background-repeat: no-repeat;
+            transition: color 0.2s ease, background-size 0.2s ease;
+        }
+
+        .footer-left a:hover {
+            color: #0f0f0f;
+            background-size: 100% 2px;
+        }
+
+        .loading-overlay {
+            background: rgba(255, 255, 255, 0.97);
+            color: #0f0f0f;
+        }
+
+        .status-dot {
+            background: #0f0f0f;
+        }
+
+        /* Cash Flow Grid Cards - AI Style */
+        #cash-flow-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .cash-flow-card {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border-tertiary);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .cash-flow-card:hover {
+            border-color: var(--color-border-primary);
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-2px);
+        }
+
+        .cash-flow-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .cash-flow-card-year {
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+        }
+
+        .cash-flow-input-wrapper {
+            position: relative;
+        }
+
+        .cash-flow-currency {
+            position: absolute;
+            left: var(--spacing-lg);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-text-muted);
+            font-size: var(--font-size-base);
+            pointer-events: none;
+        }
+
+        .cash-flow-input-field {
+            padding-left: 2rem !important;
+        }
+
+        .cash-flow-card .input-control {
+            position: relative;
+        }
+
+        .cash-flow-card .cash-flow-input-field {
+            width: 100%;
+            padding-left: 2rem;
+        }
+
+        .cash-flow-remove-btn[style*="display: none"] {
+            display: none !important;
+        }
+
+        /* AI toggle button - Circle */
+        .npv-tab-btn {
+            position: relative;
+        }
+
+        .npv-tab-btn.has-ai-toggle {
+            padding-right: 5.5rem;
+        }
+        
+        .ai-toggle-pill {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 100px;
+            height: auto;
+            padding: 0.625rem 1.5rem;
+            margin: 0;
+            background: var(--color-bg-secondary);
+            border: 1.5px solid var(--color-border-primary);
+            border-radius: var(--radius-md);
+            color: var(--color-text-primary);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.15s ease,
+                        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: none;
+            letter-spacing: 0;
+            line-height: 1.2;
+            user-select: none;
+            z-index: 10;
+            white-space: nowrap;
+            width: auto;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .ai-toggle-pill::before {
+            content: '';
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.15) 30%, transparent 70%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease-out;
+            left: var(--mouse-x, 50%);
+            top: var(--mouse-y, 50%);
+            transform: translate(-50%, -50%);
+            z-index: 1;
+            mix-blend-mode: overlay;
+            filter: blur(8px);
+        }
+        
+        .ai-toggle-pill:hover::before {
+            opacity: 1;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                filter: blur(8px);
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                filter: blur(10px);
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+        }
+
+        /* Legacy styles for toggle inside nav button */
+        .npv-tab-btn .ai-toggle-pill {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            min-width: auto;
+            height: 22px;
+            padding: 0 0.5rem;
+            background: #ffffff;
+            border: 1.5px solid #0f0f0f;
+            border-radius: 11px;
+            color: #0f0f0f;
+            font-size: 0.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .ai-toggle-pill.active {
+            background: var(--color-border-primary);
+            border-color: var(--color-border-primary);
+            color: var(--color-bg-primary);
+        }
+        
+        .ai-toggle-pill.active::before {
+            background: radial-gradient(circle, rgba(15, 15, 15, 0.5) 0%, rgba(15, 15, 15, 0.2) 30%, transparent 70%);
+        }
+
+        .npv-tab-btn .ai-toggle-pill.active {
+            border-radius: 11px;
+            padding: 0 0.5rem;
+            min-width: auto;
+            width: auto;
+            font-size: 0.5rem;
+            border-width: 2.5px;
+            font-weight: 900;
+            box-shadow: 0 0 0 3px #ffffff;
+            background: #0f0f0f;
+            border-color: #0f0f0f;
+            color: #ffffff;
+        }
+
+        /* Static circling around button - white and only visible when AI is active */
+        .ai-toggle-pill::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% + 6px);
+            height: calc(100% + 6px);
+            border: 1.5px solid #ffffff;
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            z-index: -1;
+            box-sizing: border-box;
+        }
+        
+        .ai-toggle-pill.active::after {
+            opacity: 1;
+        }
+
+        /* When Project NPV button is active (black), AI button is white */
+        .npv-tab-btn.active .ai-toggle-pill {
+            background: #ffffff;
+            border-color: #0f0f0f;
+            color: #0f0f0f;
+        }
+
+        /* When Project NPV button is inactive (white), AI button is black */
+        .npv-tab-btn:not(.active) .ai-toggle-pill {
+            background: #0f0f0f;
+            border-color: #ffffff;
+            color: #ffffff;
+        }
+
+        .ai-toggle-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .npv-tab-btn .ai-toggle-pill:hover {
+            transform: translateY(-50%) scale(1.08);
+        }
+        
+        .ai-toggle-pill.active {
+            background: var(--color-border-primary);
+            border-color: var(--color-border-primary);
+            color: var(--color-bg-primary);
+        }
+
+        .ai-toggle-pill.active:hover {
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .npv-tab-btn .ai-toggle-pill.active:hover {
+            transform: translateY(-50%) scale(1.08);
+            box-shadow: 0 0 0 4px #ffffff;
+        }
+
+        /* When active, invert the colors for clear indication */
+        .npv-tab-btn.active .ai-toggle-pill.active {
+            background: #0f0f0f;
+            border-color: #0f0f0f;
+            color: #ffffff;
+        }
+
+        .npv-tab-btn:not(.active) .ai-toggle-pill.active {
+            background: #ffffff;
+            border-color: #ffffff;
+            color: #0f0f0f;
+        }
+
+        .ai-toggle-pill:focus {
+            outline: 1px solid #0f0f0f;
+            outline-offset: 2px;
+        }
+
+        .npv-mode-view {
+            display: none;
+        }
+
+        .npv-mode-view.active {
+            display: block;
+        }
+
+        /* Slide-in animations */
+        @keyframes subTabSlide {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes buttonSlideIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #calculate-npv-button,
+        #calculate-dcf-button,
+        #npv-run-sensitivity,
+        #dcf-run-sensitivity {
+            animation: buttonSlideIn 0.35s ease;
+        }
+
+        /* Discount Table Styling */
+        #npv-discount-table-section {
+            animation: fadeInUp 0.4s ease-out;
+            margin-top: 1rem !important;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #npv-discount-table-section .panel {
+            background: #ffffff;
+            border: 1.5px solid #1a1a1a;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        #npv-discount-table-section .panel-header {
+            padding: 1.5rem 1.5rem 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            background: #ffffff;
+        }
+
+        #npv-discount-table-section .panel-content {
+            padding: 1.5rem;
+        }
+
+        .discount-table-container {
+            border: 1.5px solid #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .discount-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+        }
+
+        .discount-table thead {
+            background: #0f0f0f;
+        }
+
+        .discount-table th {
+            padding: 1rem 1.25rem;
+            text-align: left;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-bottom: none;
+        }
+
+        .discount-table th.number {
+            text-align: right;
+        }
+
+        .discount-table tbody tr {
+            border-bottom: 1px solid #e5e5e5;
+            transition: all 0.2s ease;
+        }
+
+        .discount-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .discount-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+
+        .discount-table tbody tr:first-child {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+
+        .discount-table tbody tr:first-child:hover {
+            background: #f3f4f6;
+        }
+
+        .discount-table td {
+            padding: 1rem 1.25rem;
+            font-size: 0.9375rem;
+            color: #0f0f0f;
+            border-bottom: none;
+        }
+
+        .discount-table td.number {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }
+
+        .discount-table tbody tr:first-child td {
+            color: #1f1f1f;
+            font-weight: 600;
+        }
+
+        /* Responsive discount table */
+        @media (max-width: 768px) {
+            .discount-table-container {
+                overflow-x: auto;
+            }
+
+            .discount-table {
+                min-width: 600px;
+            }
+
+            .discount-table th,
+            .discount-table td {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        /* Notion-style 2D ARQAM Logo Animation - Letter by Letter */
+        .logo {
+            position: relative;
+        }
+
+        .logo-text {
+            display: inline-block;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: #0f0f0f;
+            position: relative;
+            background: none !important;
+            -webkit-background-clip: unset !important;
+            background-clip: unset !important;
+            -webkit-text-fill-color: #0f0f0f !important;
+            text-shadow: none !important;
+            filter: none !important;
+        }
+
+        .logo-text::before {
+            content: 'ARQAM';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            color: #0f0f0f;
+            overflow: hidden;
+            white-space: nowrap;
+            animation: notionTypewriter 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            border-right: 2px solid #0f0f0f;
+            animation-delay: 0.2s;
+        }
+
+        @keyframes notionTypewriter {
+            0% {
+                width: 0;
+                border-right-color: #0f0f0f;
+            }
+            90% {
+                width: 100%;
+                border-right-color: #0f0f0f;
+            }
+            100% {
+                width: 100%;
+                border-right-color: transparent;
+            }
+        }
+
+        /* Subtle hover effect */
+        .logo-text:hover {
+            transform: translateY(-1px);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Stock Exchange Dropdown Styling */
+        select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            background: #ffffff;
+            color: #0f0f0f;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230f0f0f' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            padding-right: 2.5rem;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #0f0f0f;
+            box-shadow: 0 0 0 3px rgba(15, 15, 15, 0.1);
+        }
+
+        select:hover {
+            border-color: #9ca3af;
+        }
+
+        /* Add Selection/Add Asset Button Styling */
+        #add-portfolio-asset-btn {
+            background: #0f0f0f !important;
+            color: #ffffff !important;
+            border: 1.5px solid #0f0f0f !important;
+            border-radius: 8px !important;
+            padding: 0.625rem 1.25rem !important;
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        #add-portfolio-asset-btn:hover {
+            background: #1a1a1a !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(15, 15, 15, 0.2);
+        }
+
+        #add-portfolio-asset-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Company DCF Page Layout Improvements */
+        #company-dcf-view .content-grid {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        #company-dcf-view .panel {
+            align-self: start;
+            width: 100%;
+        }
+
+        #company-dcf-view .panel-header {
+            padding: 1.5rem;
+        }
+
+        #company-dcf-view .panel-content {
+            padding: 1.5rem;
+        }
+
+        #company-dcf-view .input-section {
+            margin-bottom: 1.5rem;
+        }
+
+        #company-dcf-view .section-title {
+            margin-bottom: 1rem;
+            font-size: 0.9375rem;
+        }
+
+        #company-dcf-view .field-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+
+        #dcf-company-info-panel {
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid #e5e5e5;
+            background: #fafafa;
+        }
+
+        #dcf-data-source-panel {
+            border-radius: 8px;
+        }
+
+        #dcf-data-source-container {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        #dcf-data-source-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #dcf-data-source-container::-webkit-scrollbar-track {
+            background: #f5f5f5;
+            border-radius: 3px;
+        }
+
+        #dcf-data-source-container::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        #dcf-data-source-container::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        /* Responsive adjustments for Company DCF */
+        @media (max-width: 1200px) {
+            #company-dcf-view .content-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+        }
+
+        /* Logo Splash Screen */
+        .logo-splash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Ensure app-container is above splash when splash is hidden */
+        .app-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-splash-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            display: none !important;
+        }
+
+        .logo-splash-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            animation: logoSplashAppear 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .logo-splash-text {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: 0.15em;
+            color: #0f0f0f;
+            text-transform: uppercase;
+            position: relative;
+            opacity: 0;
+            transform: scale(0.8) translateY(20px);
+            animation: logoSplashFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.05s forwards;
+        }
+
+        .logo-splash-text::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: #0f0f0f;
+            animation: logoSplashUnderline 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.25s forwards;
+        }
+
+        @keyframes logoSplashAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes logoSplashFadeIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.8) translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes logoSplashUnderline {
+            0% {
+                width: 0;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .logo-splash-text {
+                font-size: 2.5rem;
+            }
+        }
+
+        /* Empty State Styling */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-4xl) var(--spacing-2xl);
+            text-align: center;
+            min-height: 200px;
+        }
+
+        .empty-state-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-tertiary);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .empty-state-icon svg {
+            width: 48px;
+            height: 48px;
+            opacity: 0.6;
+        }
+
+        .empty-state-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0 0 var(--spacing-sm) 0;
+        }
+
+        .empty-state-text {
+            font-size: var(--font-size-base);
+            color: var(--color-text-muted);
+            margin: 0;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        /* Error Message Styling */
+        .inline-error {
+            padding: var(--spacing-lg);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-md);
+            color: #dc2626;
+            font-size: var(--font-size-base);
+            margin-top: var(--spacing-lg);
+        }
+
+        /* Success/Positive Value Styling */
+        .value-positive {
+            color: var(--color-accent-success);
+            font-weight: 600;
+        }
+
+        .value-negative {
+            color: var(--color-accent-error);
+            font-weight: 600;
+        }
+
+        /* Required Field Indicator */
+        .input-label.required::after {
+            content: ' *';
+            color: var(--color-accent-error);
+        }
+
+        /* Improved Ghost Button */
+        .ghost-button {
+            background: transparent;
+            border: 1px solid var(--color-border-tertiary);
+            color: var(--color-text-muted);
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-base);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ghost-button:hover {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-border-secondary);
+            color: var(--color-text-primary);
+        }
+
+        .ghost-button:active {
+            transform: scale(0.98);
+        }
+
+        /* Accessibility Improvements */
+        .skip-to-content {
+            position: absolute;
+            top: -100px;
+            left: 0;
+            background: transparent;
+            color: transparent;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            text-decoration: none;
+            z-index: 100000;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .skip-to-content:focus {
+            top: 0;
+            background: var(--color-border-primary);
+            color: var(--color-bg-primary);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Improved Focus Indicators */
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        a:focus-visible {
+            outline: 2px solid var(--color-border-primary);
+            outline-offset: 2px;
+        }
+
+        /* Touch Target Sizing for Mobile */
+        @media (max-width: 768px) {
+            button,
+            .npv-tab-btn,
+            .npv-sub-tab-btn-new,
+            .calculate-button {
+                min-height: 44px;
+                min-width: 44px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Skip to Content Link for Accessibility -->
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+
+    <!-- Logo Splash Screen -->
+    <div class="logo-splash-overlay" id="logo-splash-overlay">
+        <div class="logo-splash-content">
+            <div class="logo-splash-text">ARQAM</div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header class="header">
+            <div class="header-content">
+                <div>
+                    <h1>Company Valuation Project</h1>
+                    <p>Algorithmic project valuation and portfolio optimization tool</p>
+                </div>
+                <div class="logo">
+                    <span class="logo-text">ARQAM</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content" id="main-content">
+            <!-- Tab Navigation -->
+            <div class="npv-tabs-container">
+                <div class="npv-tabs-row">
+                    <div class="npv-tabs">
+                        <button class="npv-tab-btn active" data-tab="npv-calculator" aria-label="Valuation tab" aria-selected="true">
+                            <span>Valuation</span>
+                        </button>
+                        <button class="npv-tab-btn" data-tab="portfolio-optimization" aria-label="Portfolio Optimization tab" aria-selected="false">Portfolio Optimization</button>
+                        <button class="npv-tab-btn" data-tab="sentiment-analysis" aria-label="Sentiment Analysis tab" aria-selected="false">Sentiment Analysis</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-tab Navigation Buttons with Toggle (Below Nav Bar) -->
+            <div class="npv-sub-tabs-container" style="max-width: 1600px; margin: 0.5rem auto 1.5rem auto; padding: 0 1rem; display: flex; align-items: center; gap: 0.75rem;">
+                <!-- Project/Company Toggle Button (Left of sub-tabs) -->
+                <button class="ai-toggle-pill" id="ai-toggle-btn" onclick="toggleAIMode();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAIMode();}" role="button" tabindex="0" aria-label="Toggle to Company NPV mode" style="flex-shrink: 0; opacity: 0; transform: translateX(-20px);">
+                    Project
+                </button>
+                <!-- Sub-tab Navigation Buttons -->
+                <div class="npv-sub-tabs-buttons" style="flex: 1;">
+                    <button class="npv-sub-tab-btn-new active" data-subtab="project-npv-view" id="npv-calculation-button" aria-label="NPV Calculation sub-tab" aria-selected="true" style="opacity: 0; transform: translateY(-10px);">
+                        <span>NPV Calculation</span>
+                    </button>
+                    <button class="npv-sub-tab-btn-new" data-subtab="company-dcf-view" id="company-dcf-button" aria-label="Company DCF sub-tab" aria-selected="false" style="display: none;">
+                        <span>Company DCF</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- NPV Calculator Tab -->
+            <div id="npv-calculator-tab" class="npv-tab-content active">
+
+                <!-- Project NPV Sub-tab Content -->
+                <div id="project-npv-view" class="npv-sub-tab-content active">
+                <!-- Standard NPV Calculator -->
+                <div id="standard-npv-view" class="npv-mode-view active">
+                <div class="content-grid">
+                    <!-- NPV Input Panel -->
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Project NPV Calculator</h2>
+                            <p class="panel-subtitle">Compute NPV for a project using an initial outlay, required return, and annual cash flows</p>
+                        </div>
+                        <div class="panel-content">
+                            <!-- Project Parameters -->
+                            <div class="input-section">
+                                <h3 class="section-title">Project Parameters</h3>
+                                <div class="field-grid">
+                                    <div class="input-field">
+                                        <label class="input-label required" for="initial-cost">Initial Cost (C₀)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="initial-cost" value="-500" placeholder="e.g., -500" step="0.01" aria-required="true" aria-label="Initial investment cost">
+                                        </div>
+                                        <p class="hint">Enter as negative value for cash outflow (e.g., -500 for $500 investment)</p>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label required" for="required-return">Required Return (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="required-return" value="10" placeholder="e.g., 10" step="0.1" aria-required="true" aria-label="Required return percentage">
+                                        </div>
+                                        <p class="hint">Minimum acceptable annual return rate (e.g., 10 for 10%)</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cash Flow Blocks - AI Style Grid Cards -->
+                            <div class="input-section">
+                                <div class="section-heading">
+                                    <h3 class="section-title" style="margin: 0;">Annual Cash Flows</h3>
+                                    <button class="ghost-button" id="add-year-btn" onclick="addCashFlowYear()" aria-label="Add another year for cash flow">+ Add Year</button>
+                                </div>
+                                <div id="cash-flow-tbody">
+                                    <div id="cash-flow-grid">
+                                        <div class="cash-flow-card" data-year="1">
+                                            <div class="cash-flow-card-header">
+                                                <div class="cash-flow-card-year">Year 1</div>
+                                                <button type="button" class="ghost-button cash-flow-remove-btn" style="padding: var(--spacing-xs) 0.55rem; font-size: var(--font-size-xs); display: none;" onclick="removeCashFlowYear('', 1)">Remove</button>
+                                            </div>
+                                            <div class="input-control cash-flow-input-wrapper">
+                                                <span class="cash-flow-currency">$</span>
+                                                <input type="number" class="input cash-flow-input-field" data-year="1" placeholder="0.00" step="0.01">
+                                            </div>
+                                        </div>
+                                        <div class="cash-flow-card" data-year="2">
+                                            <div class="cash-flow-card-header">
+                                                <div class="cash-flow-card-year">Year 2</div>
+                                                <button type="button" class="ghost-button cash-flow-remove-btn" style="padding: var(--spacing-xs) 0.55rem; font-size: var(--font-size-xs); display: none;" onclick="removeCashFlowYear('', 2)">Remove</button>
+                                            </div>
+                                            <div class="input-control cash-flow-input-wrapper">
+                                                <span class="cash-flow-currency">$</span>
+                                                <input type="number" class="input cash-flow-input-field" data-year="2" placeholder="0.00" step="0.01">
+                                            </div>
+                                        </div>
+                                        <div class="cash-flow-card" data-year="3">
+                                            <div class="cash-flow-card-header">
+                                                <div class="cash-flow-card-year">Year 3</div>
+                                                <button type="button" class="ghost-button cash-flow-remove-btn" style="padding: var(--spacing-xs) 0.55rem; font-size: var(--font-size-xs); display: none;" onclick="removeCashFlowYear('', 3)">Remove</button>
+                                            </div>
+                                            <div class="input-control cash-flow-input-wrapper">
+                                                <span class="cash-flow-currency">$</span>
+                                                <input type="number" class="input cash-flow-input-field" data-year="3" placeholder="0.00" step="0.01">
+                                            </div>
+                                        </div>
+                                        <div class="cash-flow-card" data-year="4">
+                                            <div class="cash-flow-card-header">
+                                                <div class="cash-flow-card-year">Year 4</div>
+                                                <button type="button" class="ghost-button cash-flow-remove-btn" style="padding: var(--spacing-xs) 0.55rem; font-size: var(--font-size-xs); display: none;" onclick="removeCashFlowYear('', 4)">Remove</button>
+                                            </div>
+                                            <div class="input-control cash-flow-input-wrapper">
+                                                <span class="cash-flow-currency">$</span>
+                                                <input type="number" class="input cash-flow-input-field" data-year="4" placeholder="0.00" step="0.01">
+                                            </div>
+                                        </div>
+                                        <div class="cash-flow-card" data-year="5">
+                                            <div class="cash-flow-card-header">
+                                                <div class="cash-flow-card-year">Year 5</div>
+                                                <button type="button" class="ghost-button cash-flow-remove-btn" style="padding: var(--spacing-xs) 0.55rem; font-size: var(--font-size-xs); display: none;" onclick="removeCashFlowYear('', 5)">Remove</button>
+                                            </div>
+                                            <div class="input-control cash-flow-input-wrapper">
+                                                <span class="cash-flow-currency">$</span>
+                                                <input type="number" class="input cash-flow-input-field" data-year="5" placeholder="0.00" step="0.01">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Calculate Button -->
+                            <div class="cta-row">
+                                <button class="calculate-button" id="calculate-npv-button" onclick="calculateNPV()" aria-label="Calculate Net Present Value">
+                                    <span>Calculate NPV</span>
+                                </button>
+                            </div>
+
+                            <!-- Inline Sensitivity for Project NPV -->
+                            <div class="input-section" id="npv-inline-sensitivity" style="margin-top: 1rem;">
+                                <h3 class="section-title" style="margin-bottom: 0.75rem;">Sensitivity Analysis</h3>
+                                <div class="field-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; align-items: center;">
+                                    <div class="input-field">
+                                        <label class="input-label">Sensitivity Range (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="npv-sens-range" value="20" step="1" min="1" max="100">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Number of Steps</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="npv-sens-steps" value="5" step="1" min="3" max="15">
+                                        </div>
+                                    </div>
+                                    <button class="calculate-button" id="npv-run-sensitivity" onclick="runInlineNPVSensitivity()" style="width: 100%; min-width: 200px; margin-top: 0.35rem;">Run Sensitivity</button>
+                                </div>
+                                <div id="npv-sensitivity-results" style="margin-top: 0.75rem;"></div>
+                            </div>
+
+                            <!-- Error Message -->
+                            <div id="npv-error-message" class="inline-error" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- NPV Results Panel -->
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">NPV Results</h2>
+                        </div>
+                        <div class="panel-content" id="npv-results-container" style="min-height: 300px;">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <line x1="3" y1="9" x2="21" y2="9"/>
+                                        <line x1="9" y1="21" x2="9" y2="9"/>
+                                        <path d="M7 15l2-2 2 2 4-4 2 2"/>
+                                    </svg>
+                                </div>
+                                <p class="empty-state-title">Ready to Calculate</p>
+                                <p class="empty-state-text">Enter your project parameters and cash flows above, then click "Calculate NPV" to see the results here.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discount Table (Full Width) -->
+                <!-- Discount Table (Full Width) -->
+                <div id="npv-discount-table-section" style="display: none; margin-top: 1rem; max-width: 1600px; margin-left: auto; margin-right: auto; padding: 0 1rem;">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Discount Table</h2>
+                            <p class="panel-subtitle">Year-by-year breakdown of present value calculations</p>
+                        </div>
+                        <div class="panel-content">
+                            <div class="discount-table-container">
+                                <table class="discount-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Year</th>
+                                            <th class="number">Cash Flow</th>
+                                            <th class="number">Discount Factor</th>
+                                            <th class="number">Present Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="npv-discount-tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                </div>
+
+                <!-- AI NPV Calculator (ChatGPT-Powered) -->
+                <div id="ai-npv-view" class="npv-mode-view" style="display: none;">
+                <div class="content-grid">
+                    <!-- Left Panel: Inputs -->
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">AI-Powered NPV Calculator v0.2</h2>
+                            <p class="panel-subtitle">Scenario-based cash flow forecasting with ChatGPT</p>
+                        </div>
+                        <div class="panel-content">
+                            <!-- Ticker Input -->
+                            <div class="input-section">
+                                <h3 class="section-title">Company Information</h3>
+                                <div class="input-field">
+                                    <label class="input-label required" for="ai-ticker">Stock Ticker</label>
+                                    <input type="text" id="ai-ticker" class="input" placeholder="e.g., AAPL, MSFT, GOOGL" style="text-transform: uppercase;" aria-required="true" aria-label="Stock ticker symbol">
+                                    <p class="hint">Enter a stock ticker to fetch AI-generated cash flow scenarios (e.g., AAPL for Apple Inc.)</p>
+                                    <div id="ai-ticker-disambiguation" style="margin-top: var(--spacing-sm);"></div>
+                                </div>
+                                <button id="fetch-ocf-button" onclick="fetchOCF()" class="calculate-button" aria-label="Fetch cash flow scenarios from ChatGPT AI">
+                                    Fetch CF Scenarios from ChatGPT
+                                </button>
+                            </div>
+
+                            <!-- Parameters -->
+                            <div class="input-section">
+                                <h3 class="section-title">Valuation Parameters</h3>
+                                <div class="field-grid">
+                                    <div class="input-field">
+                                        <label class="input-label">Investment Amount ($)</label>
+                                        <input type="number" id="ai-initial-cost" class="input" placeholder="-10000" step="0.01">
+                                        <p class="hint">How much you're investing (negative, e.g., -10000 for $10k investment)</p>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Required Return (%)</label>
+                                        <input type="number" id="ai-required-return" class="input" placeholder="10" step="0.01">
+                                        <p class="hint">Your minimum acceptable annual return rate</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cash Flow Scenarios Table -->
+                            <div class="input-section">
+                                <h3 class="section-title">Cash Flow Scenarios (5-10 Years)</h3>
+                                <div id="ai-ocf-table-container">
+                                    <div style="background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 1.5rem; text-align: center;">
+                                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 1rem;">
+                                            Fetch scenario forecasts (Low/Base/High) from ChatGPT
+                                        </div>
+                                        <div style="font-size: 0.8125rem; color: #9ca3af;">
+                                            Click "Fetch CF Scenarios" above to generate forecasts
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Calculate Button -->
+                            <div class="cta-row">
+                                <button id="ai-calculate-npv" onclick="calculateAINPV()" class="calculate-button" aria-label="Calculate NPV using AI-generated cash flow scenarios">
+                                    Calculate NPV
+                                </button>
+                            </div>
+
+                            <div id="ai-npv-error-message" class="inline-error" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Company Info & Results -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <!-- Company Information -->
+                        <div class="panel" id="ai-company-info-panel" style="display: none;">
+                            <div class="panel-header">
+                                <h2 class="panel-title">Company Information</h2>
+                            </div>
+                            <div class="panel-content" id="ai-company-info-container">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- Valuation Results -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h2 class="panel-title">Valuation Results</h2>
+                                <p class="panel-subtitle">NPV scenarios and export options</p>
+                            </div>
+                            <div class="panel-content" id="ai-npv-results-container">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="11" width="18" height="10" rx="2"/>
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                            <circle cx="12" cy="16" r="1"/>
+                                            <path d="M8 11h8"/>
+                                        </svg>
+                                    </div>
+                                    <p class="empty-state-title">AI-Powered NPV Analysis</p>
+                                    <p class="empty-state-text">Enter a stock ticker, fetch cash flow scenarios from ChatGPT, and click "Calculate NPV" to see AI-generated valuation results with multiple scenarios.</p>
+                                </div>
+                            </div>
+                            <!-- Export Buttons -->
+                            <div id="ai-export-buttons" style="display: none; margin-top: 2rem; padding: 1.5rem 1.25rem; border-top: 1px solid #e5e5e5;">
+                                <div style="display: flex; gap: 1rem; flex-wrap: nowrap; justify-content: center;">
+                                    <button onclick="if(window.AI_NPV_DATA?.ticker) exportAIPDF(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 240px; padding: 0.5rem 1.5rem; font-size: 0.9375rem;">
+                                        Export PDF
+                                    </button>
+                                    <button onclick="if(window.AI_NPV_DATA?.ticker) exportAIExcel(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 240px; padding: 0.5rem 1.5rem; font-size: 0.9375rem;">
+                                        Export Excel
+                                    </button>
+                                    <button onclick="if(window.AI_NPV_DATA?.ticker) addToPortfolioFromAI(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 240px; padding: 0.5rem 1.5rem; font-size: 0.9375rem;">
+                                        Add to My Portfolio
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                </div>
+                <!-- End of Project NPV Sub-tab -->
+
+                <!-- Company DCF Sub-tab Content -->
+                <div id="company-dcf-view" class="npv-sub-tab-content" style="display: none;">
+                <!-- Under Development Badge -->
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <span style="color: #92400e; font-weight: 600; font-size: 0.875rem;">Under Development</span>
+                    <span style="color: #78350f; font-size: 0.8125rem; margin-left: auto;">This feature is currently being developed and may have limited functionality.</span>
+                </div>
+                <div class="content-grid" style="grid-template-columns: minmax(500px, 1.1fr) minmax(400px, 0.9fr); gap: 1.5rem; align-items: start;">
+                    <!-- Left Column: Input Form -->
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Company DCF Valuation</h2>
+                            <p class="panel-subtitle">AI-powered DCF with automatic financial statement extraction</p>
+                        </div>
+                        <div class="panel-content">
+                            <div class="cta-row" style="margin-bottom: 0.75rem;">
+                                <button class="calculate-button" id="company-dcf-header-btn" onclick="calculateDCF()" aria-label="Calculate Discounted Cash Flow valuation" style="padding: 0.7rem 1.1rem; font-size: 0.85rem; min-width: 160px; flex-shrink: 0;">
+                                    Run DCF
+                                </button>
+                            </div>
+                            <!-- Ticker Lookup Section -->
+                            <div class="input-section" style="margin-bottom: 1.25rem;">
+                                <h3 class="section-title" style="margin-bottom: 0.875rem; font-size: 0.9375rem;">Company Lookup</h3>
+                                <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.75rem; align-items: start;">
+                                    <div class="input-field" style="margin-bottom: 0;">
+                                        <label class="input-label">Stock Ticker</label>
+                                        <div class="input-control">
+                                            <input type="text" class="input" id="dcf-ticker" placeholder="AAPL" value="" style="text-transform: uppercase;">
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
+                                        <button class="calculate-button" id="fetch-dcf-data-button" onclick="fetchDCFCompanyData()" style="padding: 0.875rem 1.5rem; white-space: nowrap; width: auto; min-width: 140px; font-size: 0.875rem; margin-top: 1.5rem;" aria-label="Fetch company financial data">
+                                            <span>Fetch Data</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Ticker Disambiguation Container -->
+                                <div id="dcf-ticker-disambiguation" style="margin-top: 0.5rem;"></div>
+                            </div>
+
+                            <!-- Company Information Panel -->
+                            <div id="dcf-company-info-panel" style="display: none; margin-bottom: 1.25rem; padding: 0.875rem 1rem; background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px;">
+                                <h3 class="section-title" style="margin: 0 0 0.625rem 0; font-size: 0.8125rem; padding-bottom: 0.375rem;">Company Information</h3>
+                                <div id="dcf-company-info-container" style="font-size: 0.8125rem; line-height: 1.6; color: #4b5563;">
+                                    <!-- Company info will be populated here -->
+                                </div>
+                            </div>
+
+                            <div class="input-section" style="margin-bottom: 1.25rem;">
+                                <h3 class="section-title" style="margin-bottom: 0.875rem; font-size: 0.9375rem;">Financial Metrics</h3>
+                                <div class="field-grid" style="grid-template-columns: 1fr 1fr; gap: 0.875rem;">
+                                    <div class="input-field">
+                                        <label class="input-label">Forecast Period (Years)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-forecast-period" value="5" min="3" max="10">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Current Revenue ($B)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-revenue" placeholder="100" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Revenue Growth Rate (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-revenue-growth" placeholder="8" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">FCF Margin (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-fcf-margin" placeholder="20" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field" style="grid-column: 1 / -1;">
+                                        <label class="input-label">Terminal Growth Rate (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-terminal-growth" placeholder="2.5" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="input-section" style="margin-bottom: 1.25rem;">
+                                <h3 class="section-title" style="margin-bottom: 0.875rem; font-size: 0.9375rem;">WACC Parameters</h3>
+                                <div class="field-grid" style="grid-template-columns: 1fr 1fr; gap: 0.875rem;">
+                                    <div class="input-field">
+                                        <label class="input-label">Risk-Free Rate (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-risk-free" placeholder="4.2" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Market Risk Premium (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-market-premium" placeholder="6.0" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Beta</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-beta" placeholder="1.2" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Cost of Debt (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-cost-debt" placeholder="4.0" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Tax Rate (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-tax-rate" placeholder="21" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Debt/Equity Ratio</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-debt-equity" placeholder="0.1" step="0.01">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e5e5e5;">
+                                <button class="calculate-button" id="calculate-dcf-button" onclick="calculateDCF()" aria-label="Calculate Discounted Cash Flow valuation">
+                                    <span>Calculate DCF Valuation</span>
+                                </button>
+                            </div>
+
+                            <!-- Inline Sensitivity for Company DCF -->
+                            <div class="input-section" style="margin-top: 1.25rem;">
+                                <h3 class="section-title" style="margin-bottom: 0.75rem;">Sensitivity Analysis</h3>
+                                <div class="field-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; align-items: center;">
+                                    <div class="input-field">
+                                        <label class="input-label">Sensitivity Range (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-sens-range" value="20" step="1" min="1" max="100">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Number of Steps</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="dcf-sens-steps" value="5" step="1" min="3" max="15">
+                                        </div>
+                                    </div>
+                                    <button class="calculate-button" id="dcf-run-sensitivity" onclick="runInlineDCFSensitivity()" style="width: 100%; min-width: 200px; margin-top: 0.35rem;">Run Sensitivity</button>
+                                </div>
+                                <div id="dcf-sensitivity-results" style="margin-top: 0.75rem;"></div>
+                            </div>
+
+                            <div id="dcf-error-message" class="inline-error" style="display: none; margin-top: 1rem;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Data Sources & Results -->
+                    <div style="display: flex; flex-direction: column; gap: 1.25rem; align-self: start;">
+                        <!-- Data Source Panel -->
+                        <div class="panel" id="dcf-data-source-panel" style="display: none; background: #ffffff; border: 1px solid #e5e5e5;">
+                            <div class="panel-header" style="padding: 0.875rem 1rem; border-bottom: 1px solid #e5e5e5;">
+                                <h3 class="section-title" style="margin: 0; font-size: 0.8125rem; padding-bottom: 0.25rem;">Data Sources</h3>
+                                <p class="panel-subtitle" style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: #6b7280;">Where each metric comes from</p>
+                            </div>
+                                <div class="panel-content" id="dcf-data-source-container" style="padding: var(--spacing-lg); font-size: var(--font-size-sm); line-height: 1.6; color: var(--color-text-tertiary); max-height: 280px; overflow-y: auto;">
+                                <!-- Data sources will be populated here -->
+                                <div class="empty-state" style="padding: var(--spacing-2xl) 0;">
+                                    <div class="empty-state-icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                            <line x1="16" y1="13" x2="8" y2="13"/>
+                                            <line x1="16" y1="17" x2="8" y2="17"/>
+                                            <polyline points="10 9 9 9 8 9"/>
+                                        </svg>
+                                    </div>
+                                    <p class="empty-state-title" style="font-size: var(--font-size-base);">Data Sources</p>
+                                    <p class="empty-state-text" style="font-size: var(--font-size-sm); max-width: 300px;">Fetch company data to see where each financial metric comes from</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DCF Results Panel -->
+                        <div class="panel" style="flex: 1; min-height: 450px;">
+                            <div class="panel-header">
+                                <h2 class="panel-title">DCF Valuation Results</h2>
+                                <p class="panel-subtitle">Valuation metrics and analysis</p>
+                            </div>
+                            <div class="panel-content" id="dcf-results-container" style="min-height: 400px;">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 21h18"/>
+                                            <path d="M5 21V7l8-4v18"/>
+                                            <path d="M19 21V11l-6-4"/>
+                                            <path d="M9 9v0"/>
+                                            <path d="M9 12v0"/>
+                                            <path d="M9 15v0"/>
+                                            <path d="M9 18v0"/>
+                                        </svg>
+                                    </div>
+                                    <p class="empty-state-title">DCF Valuation Ready</p>
+                                    <p class="empty-state-text">Enter a stock ticker, fetch company data, configure your assumptions, and click "Calculate DCF Valuation" to see detailed valuation results.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                <!-- End of Company DCF Sub-tab -->
+
+            </div>
+            <!-- End of NPV Calculator Tab -->
+
+            <!-- DCF Valuation Tab -->
+            <!-- Portfolio Optimization Tab -->
+            <div id="portfolio-optimization-tab" class="npv-tab-content" style="display: none;">
+                <!-- Under Development Badge -->
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <span style="color: #92400e; font-weight: 600; font-size: 0.875rem;">Under Development</span>
+                    <span style="color: #78350f; font-size: 0.8125rem; margin-left: auto;">This feature is currently being developed and may have limited functionality.</span>
+                </div>
+                <div class="content-grid">
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Portfolio Construction & Optimization</h2>
+                            <p class="panel-subtitle">Add assets and set constraints to optimize weights</p>
+                        </div>
+                        <div class="panel-content">
+                            <div class="input-section">
+                                <h3 class="section-title">Portfolio Assets</h3>
+                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                                    <input type="text" class="input" id="portfolio-ticker-input" placeholder="e.g., AAPL, MSFT, GOOGL" style="flex: 1; text-transform: uppercase;" aria-label="Stock ticker to add to portfolio">
+                                    <button class="calculate-button" id="add-portfolio-asset-btn" style="padding: 0.65rem 1rem; width: auto;" onclick="addPortfolioAsset()" aria-label="Add asset to portfolio">Add Asset</button>
+                                </div>
+                                <div id="portfolio-assets-list" style="min-height: 120px; padding: var(--spacing-lg); background: var(--color-bg-secondary); border: 1px solid var(--color-border-tertiary); border-radius: var(--radius-md);">
+                                    <div class="empty-state" style="padding: 0;">
+                                        <div class="empty-state-icon">
+                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <rect x="3" y="3" width="7" height="7"/>
+                                                <rect x="14" y="3" width="7" height="7"/>
+                                                <rect x="14" y="14" width="7" height="7"/>
+                                                <rect x="3" y="14" width="7" height="7"/>
+                                            </svg>
+                                        </div>
+                                        <p class="empty-state-title">No Assets Added</p>
+                                        <p class="empty-state-text">Add stock tickers (e.g., AAPL, MSFT, GOOGL) above to build your portfolio for optimization.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="input-section" style="margin-top: 1.25rem;">
+                                <h3 class="section-title">Optimization Parameters</h3>
+                                <div class="field-grid">
+                                    <div class="input-field">
+                                        <label class="input-label">Strategy</label>
+                                        <div class="input-control">
+                                            <select class="input" id="portfolio-strategy">
+                                                <option value="max_sharpe">Maximum Sharpe Ratio</option>
+                                                <option value="min_variance">Minimum Variance</option>
+                                                <option value="risk_parity">Risk Parity</option>
+                                                <option value="equal_weight">Equal Weight</option>
+                                                <option value="target_return">Target Return</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Target Return (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="portfolio-target-return" placeholder="10" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Risk-Free Rate (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="portfolio-risk-free" placeholder="4.5" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Max Weight per Asset (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="portfolio-max-weight" placeholder="40" step="1">
+                                        </div>
+                                    </div>
+                                    <div class="input-field">
+                                        <label class="input-label">Min Weight per Asset (%)</label>
+                                        <div class="input-control">
+                                            <input type="number" class="input" id="portfolio-min-weight" placeholder="0" step="1">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1.25rem;">
+                                <button class="calculate-button" id="optimize-portfolio-button" onclick="optimizePortfolio()" aria-label="Optimize portfolio weights based on selected strategy">
+                                    <span>Optimize Portfolio</span>
+                                </button>
+                            </div>
+
+                            <div id="portfolio-error-message" class="inline-error" style="display: none; margin-top: 0.75rem;"></div>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Portfolio Optimization Results</h2>
+                            <p class="panel-subtitle">Weights, expected return, volatility, and Sharpe</p>
+                        </div>
+                        <div class="panel-content" id="portfolio-results-container" style="min-height: 320px;">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                        <path d="M2 12h20"/>
+                                    </svg>
+                                </div>
+                                <p class="empty-state-title">Portfolio Optimization</p>
+                                <p class="empty-state-text">Add assets to your portfolio and click "Optimize Portfolio" to see optimal weights, expected returns, and risk metrics.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sentiment Analysis Tab -->
+            <div id="sentiment-analysis-tab" class="npv-tab-content" style="display: none;">
+                <!-- Under Development Badge -->
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <span style="color: #92400e; font-weight: 600; font-size: 0.875rem;">Under Development</span>
+                    <span style="color: #78350f; font-size: 0.8125rem; margin-left: auto;">This feature is currently being developed and may have limited functionality.</span>
+                </div>
+                <div class="content-grid">
+                    <div class="panel" style="border: 2px solid #000000; align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Market Sentiment Analysis</h2>
+                            <p class="panel-subtitle">Real-time company news and sentiment analysis via Finnhub API</p>
+                        </div>
+                        <div class="panel-content">
+                            <div class="input-section">
+                                <h3 class="section-title">Company Analysis</h3>
+                                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                    <input type="text" class="input" id="sentiment-ticker" placeholder="e.g., AAPL, TSLA, MSFT" style="flex: 1; text-transform: uppercase;" aria-label="Stock ticker for sentiment analysis">
+                                    <button class="calculate-button" id="analyze-sentiment-button" onclick="analyzeSentiment()" aria-label="Analyze market sentiment for the entered ticker">
+                                        <span>Analyze Sentiment</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="sentiment-error-message" style="display: none; margin-top: 1rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #dc2626; font-size: 0.875rem;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sentiment Results Panel -->
+                    <div class="panel" style="align-self: start;">
+                        <div class="panel-header">
+                            <h2 class="panel-title">Sentiment Analysis Results</h2>
+                        </div>
+                        <div class="panel-content" id="sentiment-results-container" style="min-height: 300px;">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                        <line x1="8" y1="9" x2="16" y2="9"/>
+                                        <line x1="8" y1="13" x2="14" y2="13"/>
+                                    </svg>
+                                </div>
+                                <p class="empty-state-title">Sentiment Analysis</p>
+                                <p class="empty-state-text">Enter a stock ticker (e.g., AAPL, TSLA) and click "Analyze Sentiment" to see real-time news sentiment and market analysis.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-content" style="position: relative;">
+            <div class="footer-left">
+                <div class="brand">
+                    <span class="brand-name">ARQAM</span>
+                </div>
+                <p style="margin: 0.25rem 0 0 0;">
+                    <a href="https://www.linkedin.com/in/artemisradin" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">Artemis Radin</a>
+                </p>
+                <p class="copyright">© 2025 ARQAM. All rights reserved.</p>
+            </div>
+            <div class="footer-right" style="position: relative;">
+                <div class="footer-disclaimer" style="position: absolute; bottom: 0; right: 0; text-align: right; font-size: 0.6rem; color: #9a9a9a; line-height: 1.4; max-width: 600px; width: 100%; margin-bottom: 0; padding: 0; display: block !important; visibility: visible !important; opacity: 0.7 !important;">
+                    <p style="margin: 0; padding: 0; color: #9a9a9a !important;">For educational and research purposes only. Not a recommendation to buy, sell, or hold any security. Results are hypothetical and may not reflect actual investment outcomes. Seek professional financial guidance for investment decisions.</p>
+                </div>
+                <div style="margin-top: -1rem; padding-top: 0;">
+                    <h4>Links</h4>
+                    <ul class="about-links">
+                        <li><a href="index.html">Stock Valuation</a></li>
+                        <li><a href="#">Data Disclaimer</a></li>
+                        <li><a href="#">Help</a></li>
+                        <li><a href="#">Feedback</a></li>
+                        <li><a href="https://www.linkedin.com/in/artemisradin" target="_blank" rel="noopener">LinkedIn</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script defer src="js/npv-module.js?v=1"></script>
+    <script defer src="js/portfolio-module.js?v=3.8"></script>
+    <script defer src="js/ai-npv-module.js?v=4.0"></script>
+    <script defer src="js/dcf-module.js?v=2.0"></script>
+    <script>
+      // simple tab handling
+      document.addEventListener('DOMContentLoaded', () => {
+        const buttons = document.querySelectorAll('.npv-tab-btn');
+        const subTabsContainer = document.querySelector('.npv-sub-tabs-container');
+
+        buttons.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            // Don't switch tabs if clicking the AI button inside
+            if (e.target.closest('.ai-toggle-pill')) {
+              return;
+            }
+            
+            buttons.forEach(b => {
+              b.classList.remove('active');
+              b.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.npv-tab-content').forEach(c => {
+              if (c.id === `${tab}-tab`) {
+                c.classList.add('active');
+                c.style.display = 'block';
+              } else {
+                c.classList.remove('active');
+                c.style.display = 'none';
+              }
+            });
+
+            // Show project/company sub-tabs only when on Valuation tab
+            if (subTabsContainer) {
+              subTabsContainer.style.display = (tab === 'npv-calculator') ? 'block' : 'none';
+            }
+          });
+        });
+
+        // Ensure correct visibility on load
+        if (subTabsContainer) {
+          const activeTab = document.querySelector('.npv-tab-btn.active');
+          const tab = activeTab ? activeTab.dataset.tab : 'npv-calculator';
+          subTabsContainer.style.display = (tab === 'npv-calculator') ? 'block' : 'none';
+        }
+        
+        // Initialize remove button visibility for both tabs
+        if (typeof updateRemoveButtonVisibility === 'function') {
+          updateRemoveButtonVisibility('');
+          updateRemoveButtonVisibility('ai');
+        }
+
+        // Sub-tab handling for Project NPV / Company DCF
+        const subTabButtons = document.querySelectorAll('.npv-sub-tab-btn-new');
+        subTabButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            // Remove active class from all sub-tab buttons
+            subTabButtons.forEach(b => {
+              b.classList.remove('active');
+              b.setAttribute('aria-selected', 'false');
+            });
+            // Add active class to clicked button
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+
+            // Get the target sub-tab
+            const subTab = btn.dataset.subtab;
+
+            // Hide all sub-tab contents
+            document.querySelectorAll('.npv-sub-tab-content').forEach(content => {
+              content.classList.remove('active');
+              content.style.display = 'none';
+            });
+
+            // Show the selected sub-tab content
+            const targetContent = document.getElementById(subTab);
+            if (targetContent) {
+              targetContent.classList.add('active');
+              targetContent.style.display = 'block';
+            }
+          });
+        });
+      });
+
+      // AI Toggle Function
+      function toggleAIMode() {
+        const standardView = document.getElementById('standard-npv-view');
+        const aiView = document.getElementById('ai-npv-view');
+        const toggleBtn = document.getElementById('ai-toggle-btn');
+        const npvCalcBtn = document.getElementById('npv-calculation-button');
+        const companyDcfBtn = document.getElementById('company-dcf-button');
+
+        // Smooth cubic-bezier for professional feel
+        const smoothEase = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+        if (toggleBtn.classList.contains('active')) {
+          // Switch to Project mode
+          toggleBtn.style.transition = `opacity 0.2s ${smoothEase}`;
+          toggleBtn.style.opacity = '0';
+
+          setTimeout(() => {
+            toggleBtn.classList.remove('active');
+            toggleBtn.textContent = 'Project';
+            toggleBtn.setAttribute('aria-label', 'Toggle to Company NPV mode');
+            toggleBtn.style.opacity = '1';
+            setTimeout(() => {
+              toggleBtn.style.transition = '';
+              toggleBtn.style.opacity = '';
+            }, 200);
+          }, 200);
+
+          // NPV Calculation button stays visible (no change needed)
+
+          // Smoothly fade out Company DCF button
+          if (companyDcfBtn) {
+            companyDcfBtn.style.transition = `opacity 0.3s ${smoothEase}, transform 0.3s ${smoothEase}`;
+            companyDcfBtn.style.opacity = '0';
+            companyDcfBtn.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+              companyDcfBtn.style.display = 'none';
+              companyDcfBtn.style.transition = '';
+            }, 300);
+          }
+
+          // Smooth view transition
+          standardView.style.transition = `opacity 0.2s ${smoothEase}`;
+          aiView.style.transition = `opacity 0.2s ${smoothEase}`;
+          aiView.style.opacity = '0';
+
+          setTimeout(() => {
+            standardView.classList.add('active');
+            standardView.style.display = 'block';
+            standardView.style.opacity = '1';
+            aiView.classList.remove('active');
+            aiView.style.display = 'none';
+            setTimeout(() => {
+              standardView.style.transition = '';
+              aiView.style.transition = '';
+              standardView.style.opacity = '';
+            }, 200);
+          }, 100);
+        } else {
+          // Switch to Company mode
+          toggleBtn.style.transition = `opacity 0.2s ${smoothEase}`;
+          toggleBtn.style.opacity = '0';
+
+          setTimeout(() => {
+            toggleBtn.classList.add('active');
+            toggleBtn.textContent = 'Company';
+            toggleBtn.setAttribute('aria-label', 'Toggle to Project NPV mode');
+            toggleBtn.style.opacity = '1';
+            setTimeout(() => {
+              toggleBtn.style.transition = '';
+              toggleBtn.style.opacity = '';
+            }, 200);
+          }, 200);
+
+          // NPV Calculation button stays visible (no change needed)
+
+          // Smoothly fade in Company DCF button
+          if (companyDcfBtn) {
+            companyDcfBtn.style.display = 'flex';
+            companyDcfBtn.style.opacity = '0';
+            companyDcfBtn.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+              companyDcfBtn.style.transition = `opacity 0.35s ${smoothEase}, transform 0.35s ${smoothEase}`;
+              companyDcfBtn.style.opacity = '1';
+              companyDcfBtn.style.transform = 'translateY(0)';
+              setTimeout(() => {
+                companyDcfBtn.style.transition = '';
+              }, 350);
+            }, 50);
+          }
+
+          // Smooth view transition
+          standardView.style.transition = `opacity 0.2s ${smoothEase}`;
+          aiView.style.transition = `opacity 0.2s ${smoothEase}`;
+          standardView.style.opacity = '0';
+
+          setTimeout(() => {
+            aiView.classList.add('active');
+            aiView.style.display = 'block';
+            aiView.style.opacity = '1';
+            standardView.classList.remove('active');
+            standardView.style.display = 'none';
+            setTimeout(() => {
+              standardView.style.transition = '';
+              aiView.style.transition = '';
+              aiView.style.opacity = '';
+            }, 200);
+          }, 100);
+        }
+      }
+
+      window.toggleAIMode = toggleAIMode;
+      
+      // Add mouse tracking for toggle button hover effect
+      document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('ai-toggle-btn');
+        if (toggleBtn) {
+          toggleBtn.addEventListener('mousemove', function(e) {
+            const rect = this.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            this.style.setProperty('--mouse-x', x + 'px');
+            this.style.setProperty('--mouse-y', y + 'px');
+          });
+        }
+      });
+
+      // Logo Splash Screen - Hide after animation
+      (function() {
+        function showContent() {
+          const appContainer = document.querySelector('.app-container');
+          const mainContent = document.getElementById('main-content');
+
+          // Let the CSS animation play naturally (websiteFadeIn)
+          // Don't force immediate visibility - allow fade-in animation
+          if (appContainer) {
+            // Remove any inline styles that might block the animation
+            appContainer.style.removeProperty('opacity');
+            appContainer.style.removeProperty('visibility');
+            appContainer.style.removeProperty('display');
+            // The CSS animation will handle the fade-in
+          }
+          if (mainContent) {
+            mainContent.style.removeProperty('opacity');
+            mainContent.style.removeProperty('visibility');
+            mainContent.style.removeProperty('display');
+          }
+        }
+        
+        function hideSplash() {
+          const splashOverlay = document.getElementById('logo-splash-overlay');
+          if (splashOverlay) {
+            splashOverlay.style.opacity = '0';
+            splashOverlay.style.visibility = 'hidden';
+            splashOverlay.style.pointerEvents = 'none';
+            splashOverlay.style.zIndex = '-1';
+            splashOverlay.style.display = 'none';
+            splashOverlay.classList.add('hidden');
+            
+            // Remove from DOM
+            setTimeout(() => {
+              if (splashOverlay.parentNode) {
+                splashOverlay.remove();
+              }
+            }, 100);
+          }
+        }
+        
+        // Run immediately if DOM already loaded
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function() {
+            const splashOverlay = document.getElementById('logo-splash-overlay');
+            if (splashOverlay) {
+              setTimeout(() => {
+                hideSplash();
+                showContent();
+              }, 600);
+            } else {
+              showContent();
+            }
+          });
+        } else {
+          // DOM already loaded
+          const splashOverlay = document.getElementById('logo-splash-overlay');
+          if (splashOverlay) {
+            setTimeout(() => {
+              hideSplash();
+              showContent();
+            }, 600);
+          } else {
+            showContent();
+          }
+        }
+      })();
+
+      // Button animations - wrapped in DOMContentLoaded
+      document.addEventListener('DOMContentLoaded', function() {
+        // Animate in the Company/Project toggle button
+        const toggleBtn = document.getElementById('ai-toggle-btn');
+        if (toggleBtn) {
+          // Wait for splash screen to finish, then slide in toggle button
+          setTimeout(() => {
+            toggleBtn.classList.add('slide-in');
+            // Clean up animation class after it completes
+            setTimeout(() => {
+              toggleBtn.classList.remove('slide-in');
+              toggleBtn.style.opacity = '1';
+              toggleBtn.style.transform = 'translateX(0)';
+            }, 300);
+          }, 700); // Start after splash screen (600ms) + small delay
+        }
+
+        // Animate in the NPV Calculation button (staggered after toggle button)
+        // Only NPV button appears initially (Project mode)
+        const npvCalcBtn = document.getElementById('npv-calculation-button');
+        if (npvCalcBtn) {
+          setTimeout(() => {
+            npvCalcBtn.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            npvCalcBtn.style.opacity = '1';
+            npvCalcBtn.style.transform = 'translateY(0)';
+            setTimeout(() => {
+              npvCalcBtn.style.transition = '';
+            }, 300);
+          }, 850);
+        }
+
+        // Company DCF button stays hidden initially (appears when switching to Company mode)
+      });
+    </script>
+    
+</body>
+</html>

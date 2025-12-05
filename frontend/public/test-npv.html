@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NPV Calculator Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #0f0f0f;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #333;
+        }
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e5e5e5;
+        }
+        .result-item {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .result-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .result-value {
+            color: #0f0f0f;
+            font-weight: 700;
+        }
+        .success {
+            color: #10b981;
+        }
+        .error {
+            color: #ef4444;
+        }
+        .console-log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .console-log div {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 NPV Calculator Test</h1>
+        <p style="color: #666; margin-bottom: 30px;">
+            Simple test page to verify NPV calculation works correctly.
+        </p>
+
+        <div class="input-group">
+            <label>Initial Cost (negative for investment):</label>
+            <input type="number" id="initial-cost" value="-100000" placeholder="-100000">
+        </div>
+
+        <div class="input-group">
+            <label>Required Return (%):</label>
+            <input type="number" id="required-return" value="10" placeholder="10">
+        </div>
+
+        <div class="input-group">
+            <label>Cash Flow Year 1:</label>
+            <input type="number" class="cash-flow-input" data-year="1" value="30000">
+        </div>
+
+        <div class="input-group">
+            <label>Cash Flow Year 2:</label>
+            <input type="number" class="cash-flow-input" data-year="2" value="40000">
+        </div>
+
+        <div class="input-group">
+            <label>Cash Flow Year 3:</label>
+            <input type="number" class="cash-flow-input" data-year="3" value="50000">
+        </div>
+
+        <div class="input-group">
+            <label>Cash Flow Year 4:</label>
+            <input type="number" class="cash-flow-input" data-year="4" value="40000">
+        </div>
+
+        <div class="input-group">
+            <label>Cash Flow Year 5:</label>
+            <input type="number" class="cash-flow-input" data-year="5" value="30000">
+        </div>
+
+        <button onclick="testCalculateNPV()">Calculate NPV</button>
+
+        <div id="results" style="display: none;">
+            <h3>Results</h3>
+            <div id="results-content"></div>
+        </div>
+
+        <div class="console-log" id="console-log">
+            <strong style="color: #00ffff;">Console Output:</strong>
+            <div id="log-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // Override console.log to display in page
+        const originalConsoleLog = console.log;
+        const logContent = document.getElementById('log-content');
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const div = document.createElement('div');
+            div.textContent = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+            ).join(' ');
+            logContent.appendChild(div);
+            logContent.scrollTop = logContent.scrollHeight;
+        };
+
+        function testCalculateNPV() {
+            // Clear previous results
+            logContent.innerHTML = '';
+
+            console.log('=== NPV Calculation Test Started ===');
+
+            // Get input values
+            const initialCost = parseFloat(document.getElementById('initial-cost').value);
+            const requiredReturn = parseFloat(document.getElementById('required-return').value);
+
+            console.log('Initial Cost:', initialCost);
+            console.log('Required Return:', requiredReturn + '%');
+
+            // Get cash flows
+            const cashFlowInputs = document.querySelectorAll('.cash-flow-input');
+            const cashFlows = [];
+
+            console.log('Cash flow inputs found:', cashFlowInputs.length);
+
+            for (let input of cashFlowInputs) {
+                const value = parseFloat(input.value);
+                if (!isNaN(value)) {
+                    cashFlows.push(value);
+                }
+            }
+
+            console.log('Cash flows:', cashFlows);
+
+            // Calculate NPV
+            const discountRate = requiredReturn / 100;
+            let npv = initialCost;
+            const discountTable = [];
+
+            console.log('Discount rate:', discountRate);
+
+            // Add Year 0
+            discountTable.push({
+                year: 0,
+                cash_flow: initialCost,
+                discount_factor: 1.0,
+                present_value: initialCost
+            });
+
+            // Calculate present value for each year
+            cashFlows.forEach((cashFlow, index) => {
+                const year = index + 1;
+                const discountFactor = 1 / Math.pow(1 + discountRate, year);
+                const presentValue = cashFlow * discountFactor;
+                npv += presentValue;
+
+                discountTable.push({
+                    year: year,
+                    cash_flow: cashFlow,
+                    discount_factor: discountFactor,
+                    present_value: presentValue
+                });
+
+                console.log(`Year ${year}: CF=$${cashFlow}, DF=${discountFactor.toFixed(4)}, PV=$${presentValue.toFixed(2)}`);
+            });
+
+            console.log('Final NPV:', npv);
+
+            // Calculate IRR
+            let irr = null;
+            try {
+                irr = calculateIRR([initialCost, ...cashFlows]);
+                console.log('IRR:', (irr * 100).toFixed(2) + '%');
+            } catch (e) {
+                console.log('Could not calculate IRR:', e.message);
+            }
+
+            // Display results
+            const resultsDiv = document.getElementById('results');
+            const resultsContent = document.getElementById('results-content');
+
+            const decision = npv > 0 ? 'ACCEPT' : 'REJECT';
+            const decisionClass = npv > 0 ? 'success' : 'error';
+
+            resultsContent.innerHTML = `
+                <div class="result-item">
+                    <span class="result-label">NPV:</span>
+                    <span class="result-value ${decisionClass}">$${npv.toFixed(2)}</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">IRR:</span>
+                    <span class="result-value">${irr ? (irr * 100).toFixed(2) + '%' : 'N/A'}</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Decision:</span>
+                    <span class="result-value ${decisionClass}">${decision} PROJECT</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Project Duration:</span>
+                    <span class="result-value">${cashFlows.length} years</span>
+                </div>
+            `;
+
+            resultsDiv.style.display = 'block';
+
+            console.log('=== NPV Calculation Test Complete ===');
+        }
+
+        function calculateIRR(cashFlows, maxIterations = 100, tolerance = 0.0001) {
+            let irr = 0.1;
+
+            for (let i = 0; i < maxIterations; i++) {
+                let npv = 0;
+                let dnpv = 0;
+
+                for (let t = 0; t < cashFlows.length; t++) {
+                    npv += cashFlows[t] / Math.pow(1 + irr, t);
+                    dnpv -= t * cashFlows[t] / Math.pow(1 + irr, t + 1);
+                }
+
+                const newIrr = irr - npv / dnpv;
+
+                if (Math.abs(newIrr - irr) < tolerance) {
+                    return newIrr;
+                }
+
+                irr = newIrr;
+            }
+
+            return irr;
+        }
+
+        // Auto-run on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded. Click "Calculate NPV" to test.');
+        });
+    </script>
+</body>
+</html>
