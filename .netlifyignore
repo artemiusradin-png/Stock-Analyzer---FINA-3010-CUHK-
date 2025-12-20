@@ -1,0 +1,9 @@
+# Ignore Python dependencies since we're only deploying static files
+requirements.txt
+backend/
+venv/
+*.py
+__pycache__/
+*.pyc
+.python-version
+

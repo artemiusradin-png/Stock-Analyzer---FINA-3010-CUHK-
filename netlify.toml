@@ -1,6 +1,10 @@
 [build]
   publish = "frontend/public"
-  command = ""
+  command = "echo 'Static site - no build needed'"
+  
+# Note: If Netlify auto-detects requirements.txt and tries to install Python dependencies,
+# the runtime.txt file will ensure Python 3.11.9 is used (compatible with numpy 1.24.3)
+# Since we're only deploying static files, Python dependencies are not actually needed
 
 # Uncomment and adjust if you need SPA-style routing
 #[[redirects]]

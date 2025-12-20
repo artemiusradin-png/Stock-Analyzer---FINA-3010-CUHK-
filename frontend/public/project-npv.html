@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="css/components.css?v=49">
     <link rel="stylesheet" href="css/animations.css?v=49">
     <link rel="stylesheet" href="css/responsive.css?v=49">
-    <link rel="stylesheet" href="css/project-npv-overrides.css?v=1">
+    <link rel="stylesheet" href="css/project-npv-overrides.css?v=55">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -404,7 +404,7 @@
             margin-bottom: 0;
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: flex-start;
             gap: 0.5rem;
             margin-top: -0.2rem;
             animation: subTabSlide 0.35s ease;
@@ -418,10 +418,12 @@
             gap: var(--spacing-xs);
             position: relative;
             border: 1px solid var(--color-border-tertiary);
+            flex: 0 0 auto;
+            width: auto;
         }
 
         .npv-sub-tab-btn-new {
-            padding: 0.625rem calc(1.5rem + 1px);
+            padding: 0.4rem 0.85rem;
             background: transparent;
             border: none;
             border-radius: var(--radius-sm);
@@ -433,7 +435,7 @@
             text-transform: none;
             letter-spacing: 0;
             position: relative;
-            flex: 1;
+            flex: 0 0 auto;
             z-index: 1;
             white-space: nowrap;
             display: flex;
@@ -915,6 +917,30 @@
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Tooltip styling */
+        .tooltip-icon {
+            display: inline-block;
+            margin-left: 0.25rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+            cursor: help;
+            font-weight: 400;
+            transition: color 0.2s ease;
+        }
+
+        .tooltip-icon:hover {
+            color: #0f0f0f;
         }
 
         #npv-discount-table-section .panel {
@@ -1492,11 +1518,11 @@
                     Project
                 </button>
                 <!-- Sub-tab Navigation Buttons -->
-                <div class="npv-sub-tabs-buttons" style="flex: 1;">
-                    <button class="npv-sub-tab-btn-new active" data-subtab="project-npv-view" id="npv-calculation-button" aria-label="NPV Calculation sub-tab" aria-selected="true" style="opacity: 0; transform: translateY(-10px);">
+                <div class="npv-sub-tabs-buttons" style="flex: 0 0 auto; width: auto;">
+                    <button class="npv-sub-tab-btn-new active" data-subtab="project-npv-view" id="npv-calculation-button" aria-label="NPV Calculation sub-tab" aria-selected="true" style="opacity: 0; transform: translateY(-10px); padding: 0.35rem 0.85rem; min-width: 125px;">
                         <span>NPV Calculation</span>
                     </button>
-                    <button class="npv-sub-tab-btn-new" data-subtab="company-dcf-view" id="company-dcf-button" aria-label="Company DCF sub-tab" aria-selected="false" style="display: none;">
+                    <button class="npv-sub-tab-btn-new" data-subtab="company-dcf-view" id="company-dcf-button" aria-label="Company DCF sub-tab" aria-selected="false" style="display: none; padding: 0.35rem 0.85rem; min-width: 125px;">
                         <span>Company DCF</span>
                     </button>
                 </div>
@@ -1714,8 +1740,19 @@
                                 <div class="field-grid">
                                     <div class="input-field">
                                         <label class="input-label">Investment Amount ($)</label>
-                                        <input type="number" id="ai-initial-cost" class="input" placeholder="-10000" step="0.01">
-                                        <p class="hint">How much you're investing (negative, e.g., -10000 for $10k investment)</p>
+                                        <div class="input-control" style="display: flex; gap: 0.5rem; align-items: center;">
+                                            <input type="number" id="ai-initial-cost" class="input" placeholder="-10000" step="0.01" style="flex: 1;">
+                                            <button type="button" onclick="if(window.updateCashFlowsToTotals){window.updateCashFlowsToTotals();}else{alert('Please fetch cash flow scenarios first');}" 
+                                                    class="input-field-icon-btn"
+                                                    style="width: 2.25rem; height: 2.25rem; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--color-bg-secondary); border: 1px solid var(--color-border-tertiary); border-radius: 4px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; color: var(--color-text-primary); font-size: 1rem;"
+                                                    onmouseover="this.style.background='var(--color-bg-tertiary)'; this.style.borderColor='var(--color-border-secondary)'"
+                                                    onmouseout="this.style.background='var(--color-bg-secondary)'; this.style.borderColor='var(--color-border-tertiary)'"
+                                                    title="Update cash flow table to show totals based on your investment"
+                                                    aria-label="Update cash flows">
+                                                ↻
+                                            </button>
+                                        </div>
+                                        <p class="hint">How much you're investing (negative, e.g., -10000 for $10k investment). Click the button to update the cash flow table.</p>
                                     </div>
                                     <div class="input-field">
                                         <label class="input-label">Required Return (%)</label>
@@ -2066,7 +2103,10 @@
                                 <h3 class="section-title">Optimization Parameters</h3>
                                 <div class="field-grid">
                                     <div class="input-field">
-                                        <label class="input-label">Strategy</label>
+                                        <label class="input-label">
+                                            Strategy
+                                            <span class="tooltip-icon" title="Max Sharpe: Maximize risk-adjusted return | Min Variance: Minimize portfolio volatility | Risk Parity: Equal risk contribution from each asset | Equal Weight: Simple 1/N allocation | Target Return: Minimize risk for a target return | DCF-Weighted: Weight by valuation upside">ⓘ</span>
+                                        </label>
                                         <div class="input-control">
                                             <select class="input" id="portfolio-strategy">
                                                 <option value="max_sharpe">Maximum Sharpe Ratio</option>
@@ -2074,29 +2114,42 @@
                                                 <option value="risk_parity">Risk Parity</option>
                                                 <option value="equal_weight">Equal Weight</option>
                                                 <option value="target_return">Target Return</option>
+                                                <option value="dcf_weighted">DCF-Weighted (Valuation-Based)</option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="input-field">
-                                        <label class="input-label">Target Return (%)</label>
+                                        <label class="input-label">
+                                            Target Return (%)
+                                            <span class="tooltip-icon" title="Minimum acceptable annualized return. Only used for 'Target Return' strategy.">ⓘ</span>
+                                        </label>
                                         <div class="input-control">
                                             <input type="number" class="input" id="portfolio-target-return" placeholder="10" step="0.1">
                                         </div>
                                     </div>
                                     <div class="input-field">
-                                        <label class="input-label">Risk-Free Rate (%)</label>
+                                        <label class="input-label">
+                                            Risk-Free Rate (%)
+                                            <span class="tooltip-icon" title="Annual return of a risk-free asset (e.g., 10Y Treasury ~4.5%). Used to calculate Sharpe ratio.">ⓘ</span>
+                                        </label>
                                         <div class="input-control">
                                             <input type="number" class="input" id="portfolio-risk-free" placeholder="4.5" step="0.1">
                                         </div>
                                     </div>
                                     <div class="input-field">
-                                        <label class="input-label">Max Weight per Asset (%)</label>
+                                        <label class="input-label">
+                                            Max Weight per Asset (%)
+                                            <span class="tooltip-icon" title="Maximum allocation allowed for any single asset (e.g., 40% prevents over-concentration)">ⓘ</span>
+                                        </label>
                                         <div class="input-control">
                                             <input type="number" class="input" id="portfolio-max-weight" placeholder="40" step="1">
                                         </div>
                                     </div>
                                     <div class="input-field">
-                                        <label class="input-label">Min Weight per Asset (%)</label>
+                                        <label class="input-label">
+                                            Min Weight per Asset (%)
+                                            <span class="tooltip-icon" title="Minimum allocation required for each asset (0% allows assets to be excluded)">ⓘ</span>
+                                        </label>
                                         <div class="input-control">
                                             <input type="number" class="input" id="portfolio-min-weight" placeholder="0" step="1">
                                         </div>
@@ -2116,10 +2169,10 @@
 
                     <div class="panel" style="align-self: start;">
                         <div class="panel-header">
-                            <h2 class="panel-title">Portfolio Optimization Results</h2>
+                            <h2 class="panel-title">Portfolio Metrics</h2>
                             <p class="panel-subtitle">Weights, expected return, volatility, and Sharpe</p>
                         </div>
-                        <div class="panel-content" id="portfolio-results-container" style="min-height: 320px;">
+                        <div class="panel-content" id="portfolio-metrics-container" style="min-height: 320px;">
                             <div class="empty-state">
                                 <div class="empty-state-icon">
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2131,6 +2184,27 @@
                                 <p class="empty-state-title">Portfolio Optimization</p>
                                 <p class="empty-state-text">Add assets to your portfolio and click "Optimize Portfolio" to see optimal weights, expected returns, and risk metrics.</p>
                             </div>
+                        </div>
+                    </div>
+
+                </div>
+                
+                <div class="panel portfolio-results-full-width" style="width: 100%; max-width: 100%; margin-top: 1.5rem;">
+                    <div class="panel-header">
+                        <h2 class="panel-title">Portfolio Optimization Results</h2>
+                        <p class="panel-subtitle">Efficient frontier and Monte Carlo simulation</p>
+                    </div>
+                    <div class="panel-content" id="portfolio-results-container" style="min-height: 320px;">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                    <path d="M2 12h20"/>
+                                </svg>
+                            </div>
+                            <p class="empty-state-title">Portfolio Charts</p>
+                            <p class="empty-state-text">Optimize your portfolio to see the efficient frontier and Monte Carlo simulation results.</p>
                         </div>
                     </div>
                 </div>
@@ -2223,8 +2297,8 @@
 
     <!-- Scripts -->
     <script defer src="js/npv-module.js?v=1"></script>
-    <script defer src="js/portfolio-module.js?v=3.8"></script>
-    <script defer src="js/ai-npv-module.js?v=4.0"></script>
+    <script defer src="js/portfolio-module.js?v=3.11"></script>
+    <script defer src="js/ai-npv-module.js?v=4.1"></script>
     <script defer src="js/dcf-module.js?v=2.0"></script>
     <script>
       // simple tab handling
@@ -2265,9 +2339,17 @@
 
         // Ensure correct visibility on load
         if (subTabsContainer) {
+          let tab = 'npv-calculator';
+          // Prefer persisted active tab if available
+          try {
+            const savedTab = localStorage.getItem('npvActiveTab');
+            if (savedTab) tab = savedTab;
+          } catch (_) {}
           const activeTab = document.querySelector('.npv-tab-btn.active');
-          const tab = activeTab ? activeTab.dataset.tab : 'npv-calculator';
-          subTabsContainer.style.display = (tab === 'npv-calculator') ? 'block' : 'none';
+          if (activeTab && activeTab.dataset.tab) {
+            tab = activeTab.dataset.tab;
+          }
+          subTabsContainer.style.display = (tab === 'npv-calculator') ? 'flex' : 'none';
         }
         
         // Initialize remove button visibility for both tabs

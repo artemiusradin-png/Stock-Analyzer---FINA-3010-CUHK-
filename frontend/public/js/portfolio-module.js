@@ -33,6 +33,153 @@ let portfolioAssets = [];
 // Make portfolioAssets accessible globally for adding from other modules
 window.portfolioAssets = portfolioAssets;
 
+const OPTIMIZATION_PARAMS_KEY = 'portfolioOptimizationParams';
+const ACTIVE_TAB_KEY = 'npvActiveTab';
+const SCROLL_POS_KEY = 'npvScrollY';
+
+// QuickChart API configuration
+const QUICKCHART_API_KEY = 'sk-zMh-5GPf4rfkoNjDIKPLOUgGS7qMhTIDtHI8bZcA8pNurwK2I3Bmdq8mTk6mEbMZguTvHKGT_pXZPZ7jwOQW0GLgxFRi';
+const QUICKCHART_BASE_URL = 'https://quickchart.io/chart';
+
+/**
+ * Generate chart using QuickChart API with Chart.js fallback
+ * @param {HTMLCanvasElement} canvas - The canvas element
+ * @param {Object} chartConfig - Chart.js configuration object
+ * @param {Function} fallbackFn - Optional fallback function that creates Chart.js chart
+ * @returns {Promise<boolean>} - True if QuickChart succeeded, false if using fallback
+ */
+async function renderChartWithQuickChart(canvas, chartConfig, fallbackFn = null) {
+    try {
+        // Build QuickChart URL
+        const chartConfigStr = encodeURIComponent(JSON.stringify(chartConfig));
+        const quickChartUrl = `${QUICKCHART_BASE_URL}?c=${chartConfigStr}&key=${QUICKCHART_API_KEY}&width=800&height=400&devicePixelRatio=2.0`;
+
+        // Create image and load from QuickChart
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        return new Promise((resolve) => {
+            img.onload = () => {
+                const ctx = canvas.getContext('2d');
+                canvas.width = 800;
+                canvas.height = 400;
+                ctx.drawImage(img, 0, 0, 800, 400);
+                console.log('✓ Chart rendered using QuickChart API');
+                resolve(true);
+            };
+
+            img.onerror = () => {
+                console.warn('QuickChart API failed, falling back to Chart.js');
+                if (fallbackFn) {
+                    fallbackFn();
+                }
+                resolve(false);
+            };
+
+            img.src = quickChartUrl;
+
+            // Timeout after 5 seconds
+            setTimeout(() => {
+                if (!img.complete) {
+                    console.warn('QuickChart API timeout, falling back to Chart.js');
+                    if (fallbackFn) {
+                        fallbackFn();
+                    }
+                    resolve(false);
+                }
+            }, 5000);
+        });
+    } catch (error) {
+        console.error('QuickChart error:', error);
+        if (fallbackFn) {
+            fallbackFn();
+        }
+        return false;
+    }
+}
+
+function persistPortfolioAssets() {
+    try {
+        localStorage.setItem('portfolioAssets', JSON.stringify(portfolioAssets));
+    } catch (err) {
+        console.warn('Unable to persist portfolio assets:', err);
+    }
+}
+
+function loadPortfolioAssetsFromStorage() {
+    try {
+        const saved = localStorage.getItem('portfolioAssets');
+        if (!saved) return;
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length) {
+            portfolioAssets = parsed;
+            window.portfolioAssets = portfolioAssets;
+            renderPortfolioAssets();
+        }
+    } catch (err) {
+        console.warn('Unable to load saved portfolio assets:', err);
+    }
+}
+
+function getOptimizationParamsFromUI() {
+    const strategy = document.getElementById('portfolio-strategy')?.value;
+    const targetReturn = document.getElementById('portfolio-target-return')?.value;
+    const riskFree = document.getElementById('portfolio-risk-free')?.value;
+    const maxWeight = document.getElementById('portfolio-max-weight')?.value;
+    const minWeight = document.getElementById('portfolio-min-weight')?.value;
+
+    return { strategy, targetReturn, riskFree, maxWeight, minWeight };
+}
+
+function persistOptimizationParams() {
+    try {
+        localStorage.setItem(OPTIMIZATION_PARAMS_KEY, JSON.stringify(getOptimizationParamsFromUI()));
+    } catch (err) {
+        console.warn('Unable to persist optimization params:', err);
+    }
+}
+
+function loadOptimizationParams() {
+    try {
+        const saved = localStorage.getItem(OPTIMIZATION_PARAMS_KEY);
+        if (!saved) return;
+        const params = JSON.parse(saved);
+        if (!params || typeof params !== 'object') return;
+
+        const applyValue = (id, value) => {
+            const el = document.getElementById(id);
+            if (el && value !== undefined && value !== null && value !== '') {
+                el.value = value;
+            }
+        };
+
+        applyValue('portfolio-strategy', params.strategy);
+        applyValue('portfolio-target-return', params.targetReturn);
+        applyValue('portfolio-risk-free', params.riskFree);
+        applyValue('portfolio-max-weight', params.maxWeight);
+        applyValue('portfolio-min-weight', params.minWeight);
+    } catch (err) {
+        console.warn('Unable to load optimization params:', err);
+    }
+}
+
+function attachOptimizationParamListeners() {
+    const ids = [
+        'portfolio-strategy',
+        'portfolio-target-return',
+        'portfolio-risk-free',
+        'portfolio-max-weight',
+        'portfolio-min-weight'
+    ];
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', persistOptimizationParams);
+        el.addEventListener('input', persistOptimizationParams);
+    });
+}
+
 /**
  * Tab Management
  */
@@ -40,26 +187,50 @@ function initNPVTabs() {
     const tabButtons = document.querySelectorAll('.npv-tab-btn');
     const tabContents = document.querySelectorAll('.npv-tab-content');
 
-    tabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetTab = btn.dataset.tab;
-
-            // Remove active class from all buttons and hide all contents
-            tabButtons.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => {
-                c.classList.remove('active');
-                c.style.display = 'none';
-            });
-
-            // Add active class to clicked button and show corresponding content
-            btn.classList.add('active');
-            const targetContent = document.getElementById(`${targetTab}-tab`);
-            if (targetContent) {
-                targetContent.classList.add('active');
-                targetContent.style.display = 'block';
-            }
+    const activateTab = (tabName) => {
+        // Remove active class from all buttons and hide all contents
+        tabButtons.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => {
+            c.classList.remove('active');
+            c.style.display = 'none';
         });
+
+        // Add active class to clicked button and show corresponding content
+        const targetButton = Array.from(tabButtons).find(b => b.dataset.tab === tabName);
+        const targetContent = document.getElementById(`${tabName}-tab`);
+        if (targetButton) targetButton.classList.add('active');
+        if (targetContent) {
+            targetContent.classList.add('active');
+            targetContent.style.display = 'block';
+        }
+        // Toggle sub-tabs visibility based on top-level tab
+        const subTabsContainer = document.querySelector('.npv-sub-tabs-container');
+        if (subTabsContainer) {
+            subTabsContainer.style.display = (tabName === 'npv-calculator') ? 'flex' : 'none';
+        }
+        try {
+            localStorage.setItem(ACTIVE_TAB_KEY, tabName);
+        } catch (err) {
+            console.warn('Unable to persist active tab:', err);
+        }
+    };
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => activateTab(btn.dataset.tab));
     });
+
+    // Restore last tab or default to first
+    const savedTab = (() => {
+        try {
+            return localStorage.getItem(ACTIVE_TAB_KEY);
+        } catch {
+            return null;
+        }
+    })();
+    const initialTab = (savedTab && document.getElementById(`${savedTab}-tab`)) ? savedTab : tabButtons[0]?.dataset.tab;
+    if (initialTab) {
+        activateTab(initialTab);
+    }
 }
 
 /**
@@ -244,6 +415,7 @@ function addPortfolioAsset(assetData = null) {
 
     // Update global reference
     window.portfolioAssets = portfolioAssets;
+    persistPortfolioAssets();
 
     // Clear input if called from UI
     const tickerInput = document.getElementById('portfolio-ticker-input');
@@ -258,6 +430,7 @@ function removePortfolioAsset(ticker) {
     portfolioAssets = portfolioAssets.filter(a => a.ticker !== ticker);
     // Update global reference
     window.portfolioAssets = portfolioAssets;
+    persistPortfolioAssets();
     renderPortfolioAssets();
 }
 
@@ -302,6 +475,8 @@ async function optimizePortfolio() {
         return;
     }
 
+    console.log('DEBUG Frontend: portfolioAssets array:', portfolioAssets);
+
     const strategy = document.getElementById('portfolio-strategy')?.value || 'max_sharpe';
     const targetReturn = parseFloat(document.getElementById('portfolio-target-return')?.value || 0);
     const riskFree = parseFloat(document.getElementById('portfolio-risk-free')?.value || 4.5);
@@ -319,6 +494,10 @@ async function optimizePortfolio() {
         lookback_days: 252,
         risk_free_rate: riskFree / 100
     };
+
+    console.log('DEBUG Frontend: Request body:', JSON.stringify(requestBody, null, 2));
+
+    persistOptimizationParams();
 
     const button = document.getElementById('optimize-portfolio-button');
     const originalText = button.innerHTML;
@@ -366,45 +545,439 @@ function displayPortfolioResults(data) {
     const expectedReturn = ((data.expected_return || 0) * 100).toFixed(2);
     const volatility = ((data.volatility || 0) * 100).toFixed(2);
     const sharpeRatio = (data.sharpe_ratio || 0).toFixed(3);
+    const strategyLabel = {
+        max_sharpe: 'Maximum Sharpe',
+        min_variance: 'Minimum Variance',
+        risk_parity: 'Risk Parity',
+        equal_weight: 'Equal Weight',
+        target_return: 'Target Return',
+        dcf_weighted: 'DCF-Weighted'
+    }[data.strategy] || data.strategy || 'Optimized';
+
+    // Store data globally for efficient frontier and Monte Carlo
+    window.currentPortfolioData = data;
 
     container.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
-            <div class="summary-card primary">
-                <div class="card-label">Expected Return</div>
-                <div class="card-value">${expectedReturn}%</div>
+        <div class="portfolio-results-shell">
+            <div class="portfolio-results-header">
+                <div>
+                    <p class="eyebrow">Optimization complete</p>
+                    <h3>Portfolio Metrics</h3>
+                    <p class="muted">Strategy: ${strategyLabel}</p>
+                </div>
+                <div class="portfolio-actions">
+                    <button class="ghost-button" onclick="exportPortfolioToCSV()">Export CSV</button>
+                    <button class="primary-button" onclick="savePortfolioToLocalStorage()">Save Portfolio</button>
+                </div>
             </div>
-            <div class="summary-card warning">
-                <div class="card-label">Volatility</div>
-                <div class="card-value">${volatility}%</div>
+
+            <div class="portfolio-metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Expected Return</div>
+                    <div class="metric-value">${expectedReturn}%</div>
+                    <div class="metric-sub">Annualized</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Volatility</div>
+                    <div class="metric-value">${volatility}%</div>
+                    <div class="metric-sub">Annualized</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Sharpe Ratio</div>
+                    <div class="metric-value">${sharpeRatio}</div>
+                    <div class="metric-sub">Risk-adjusted</div>
+                </div>
             </div>
-            <div class="summary-card success">
-                <div class="card-label">Sharpe Ratio</div>
-                <div class="card-value">${sharpeRatio}</div>
+
+            ${data.holdings && data.holdings.length > 0 ? `
+                <div class="allocation-card">
+                    <div class="allocation-header">
+                        <div>
+                            <p class="eyebrow">Optimal Allocation</p>
+                            <h4>Weights & Asset Stats</h4>
+                        </div>
+                        <span class="pill">${strategyLabel}</span>
+                    </div>
+                    <div class="portfolio-table-wrap">
+                        <table class="portfolio-table">
+                            <thead>
+                                <tr>
+                                    <th>Ticker</th>
+                                    <th class="number">Weight</th>
+                                    <th class="number">Exp. Return</th>
+                                    <th class="number">Volatility</th>
+                                    <th class="number">Risk Contrib.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.holdings.map(h => `
+                                    <tr>
+                                        <td><span class="ticker-chip">${h.ticker}</span></td>
+                                        <td class="number">${((h.weight || 0) * 100).toFixed(2)}%</td>
+                                        <td class="number">${((h.expected_return || 0) * 100).toFixed(2)}%</td>
+                                        <td class="number">${((h.volatility || 0) * 100).toFixed(2)}%</td>
+                                        <td class="number">${((h.contribution_to_risk || 0) * 100).toFixed(2)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="portfolio-chart-grid">
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <h4>Efficient Frontier</h4>
+                        <span class="pill soft">Risk/Return</span>
+                    </div>
+                    <div id="efficient-frontier-loading" class="chart-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Generating efficient frontier...</p>
+                    </div>
+                    <canvas id="efficient-frontier-chart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <h4>Monte Carlo Simulation</h4>
+                        <span class="pill soft">1,000 paths</span>
+                    </div>
+                    <div id="monte-carlo-loading" class="chart-loading" style="display: none;">
+                        <div class="spinner green"></div>
+                        <p>Running simulation...</p>
+                    </div>
+                    <canvas id="monte-carlo-chart"></canvas>
+                </div>
             </div>
         </div>
-
-        ${data.weights ? `
-            <div class="table-container">
-                <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 600;">Optimal Asset Weights</h3>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th class="number">Weight (%)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${Object.entries(data.weights).map(([ticker, weight]) => `
-                            <tr>
-                                <td>${ticker}</td>
-                                <td class="number">${((weight || 0) * 100).toFixed(2)}%</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        ` : ''}
     `;
+
+    // Auto-generate charts if we have data
+    if (data.holdings && data.holdings.length > 0) {
+        setTimeout(() => {
+            plotEfficientFrontier();
+            runMonteCarloSimulation();
+            calculateRiskAnalytics();
+        }, 500);
+    }
+}
+
+/**
+ * Risk Analytics Functions
+ */
+async function calculateRiskAnalytics() {
+    if (!window.currentPortfolioData || !portfolioAssets || portfolioAssets.length < 1) {
+        return;
+    }
+
+    const tickers = portfolioAssets.map(a => a.ticker);
+    const weights = window.currentPortfolioData.holdings.map(h => h.weight);
+    const riskFree = parseFloat(document.getElementById('portfolio-risk-free')?.value || 4.5) / 100;
+
+    try {
+        const response = await fetch(`${PORTFOLIO_API_BASE}/api/portfolios/risk-analytics`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tickers: tickers,
+                weights: weights,
+                lookback_days: 252,
+                risk_free_rate: riskFree,
+                confidence_level: 0.95
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to calculate risk analytics');
+        }
+
+        const data = await response.json();
+        displayRiskAnalytics(data);
+
+    } catch (error) {
+        console.error('Risk analytics error:', error);
+        // Don't show alert, just log - risk analytics is optional
+    }
+}
+
+function displayRiskAnalytics(data) {
+    // Find or create risk analytics container
+    let container = document.getElementById('risk-analytics-container');
+    if (!container) {
+        // Create container after portfolio results
+        const resultsContainer = document.getElementById('portfolio-results-container');
+        container = document.createElement('div');
+        container.id = 'risk-analytics-container';
+        resultsContainer.parentElement.appendChild(container);
+    }
+
+    const metrics = data.portfolio_metrics;
+    const decomp = data.risk_decomposition;
+
+    container.innerHTML = `
+        <div class="risk-shell">
+            <div class="risk-header">
+                <div>
+                    <p class="eyebrow">Risk Analytics</p>
+                    <h3>Comprehensive risk metrics & decomposition</h3>
+                    <p class="muted">Confidence: 95% | Lookback: 252d</p>
+                </div>
+                <div class="pill soft">Risk snapshot</div>
+            </div>
+
+            <div class="risk-grid two">
+                <div class="risk-card">
+                    <div class="risk-card-title">Volatility Metrics</div>
+                    <div class="risk-metrics">
+                        <div class="metric-item">
+                            <div class="metric-label">Annualized Volatility</div>
+                            <div class="metric-value">${(metrics.annualized_volatility * 100).toFixed(2)}%</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Downside Volatility</div>
+                            <div class="metric-value">${(metrics.downside_volatility * 100).toFixed(2)}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="risk-card">
+                    <div class="risk-card-title">Downside Risk</div>
+                    <div class="risk-metrics three">
+                        <div class="metric-item">
+                            <div class="metric-label">VaR (95%)</div>
+                            <div class="metric-value">${(metrics.value_at_risk * 100).toFixed(2)}%</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">CVaR (ES)</div>
+                            <div class="metric-value">${(metrics.conditional_value_at_risk * 100).toFixed(2)}%</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Max Drawdown</div>
+                            <div class="metric-value">${(metrics.max_drawdown * 100).toFixed(2)}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="risk-grid three">
+                <div class="risk-card">
+                    <div class="risk-card-title">Risk-Adjusted Returns</div>
+                    <div class="risk-metrics three">
+                        <div class="metric-item">
+                            <div class="metric-label">Sharpe</div>
+                            <div class="metric-value">${metrics.sharpe_ratio.toFixed(3)}</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Sortino</div>
+                            <div class="metric-value">${metrics.sortino_ratio.toFixed(3)}</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Calmar</div>
+                            <div class="metric-value">${metrics.calmar_ratio.toFixed(3)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="risk-card">
+                    <div class="risk-card-title">Distribution</div>
+                    <div class="risk-metrics two">
+                        <div class="metric-item">
+                            <div class="metric-label">Skewness</div>
+                            <div class="metric-value">${metrics.skewness.toFixed(3)}</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Kurtosis</div>
+                            <div class="metric-value">${metrics.kurtosis.toFixed(3)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${metrics.beta !== null ? `
+                <div class="risk-card">
+                    <div class="risk-card-title">Market Risk (vs SPY)</div>
+                    <div class="risk-metrics three">
+                        <div class="metric-item">
+                            <div class="metric-label">Beta</div>
+                            <div class="metric-value">${metrics.beta.toFixed(3)}</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Alpha (Annual)</div>
+                            <div class="metric-value">${(metrics.alpha * 100).toFixed(2)}%</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">R-Squared</div>
+                            <div class="metric-value">${(metrics.r_squared * 100).toFixed(1)}%</div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="risk-grid two">
+                <div class="risk-card">
+                    <div class="risk-card-title">Risk Decomposition</div>
+                    <canvas id="risk-decomposition-chart"></canvas>
+                </div>
+                <div class="risk-card">
+                    <div class="risk-card-title">Contribution by Asset</div>
+                    <div class="portfolio-table-wrap">
+                        <table class="portfolio-table risk-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset</th>
+                                    <th class="number">Weight</th>
+                                    <th class="number">Risk %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${decomp.map(d => `
+                                    <tr>
+                                        <td><span class="ticker-chip">${d.ticker}</span></td>
+                                        <td class="number">${(d.weight * 100).toFixed(2)}%</td>
+                                        <td class="number">${d.percent_contribution_to_risk.toFixed(2)}%</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="risk-grid two">
+                <div class="risk-card">
+                    <div class="risk-card-title">Risk Components</div>
+                    <div class="risk-metrics two">
+                        <div class="metric-item">
+                            <div class="metric-label">Systematic (Market)</div>
+                            <div class="metric-value">${(data.systematic_risk * 100).toFixed(2)}%</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-label">Idiosyncratic (Specific)</div>
+                            <div class="metric-value">${(data.idiosyncratic_risk * 100).toFixed(2)}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Plot risk decomposition pie chart
+    setTimeout(() => plotRiskDecomposition(decomp), 100);
+}
+
+let riskDecompositionChart = null;
+
+async function plotRiskDecomposition(decomposition) {
+    const ctx = document.getElementById('risk-decomposition-chart');
+    if (!ctx) return;
+
+    // Destroy existing chart if it exists
+    if (riskDecompositionChart) {
+        riskDecompositionChart.destroy();
+    }
+
+    const labels = decomposition.map(d => d.ticker);
+    const data = decomposition.map(d => d.percent_contribution_to_risk);
+
+    // Build chart configuration with professional theme
+    const chartConfig = {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    '#3b82f6',
+                    '#10b981',
+                    '#f59e0b',
+                    '#ef4444',
+                    '#8b5cf6',
+                    '#ec4899',
+                    '#14b8a6',
+                    '#f97316'
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 3,
+                hoverBorderWidth: 4,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: {
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            size: 12,
+                            weight: '500'
+                        },
+                        color: '#0f0f0f',
+                        padding: 15,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 12,
+                        boxHeight: 12
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    titleFont: {
+                        family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        size: 13,
+                        weight: '600'
+                    },
+                    bodyFont: {
+                        family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        size: 12
+                    },
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.label}: ${context.parsed.toFixed(2)}% of risk`;
+                        }
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Risk Contribution by Asset',
+                    font: {
+                        family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        size: 14,
+                        weight: '600'
+                    },
+                    color: '#0f0f0f',
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                }
+            }
+        }
+    };
+
+    // Try QuickChart first, fallback to Chart.js
+    const quickChartSuccess = await renderChartWithQuickChart(
+        ctx,
+        chartConfig,
+        () => {
+            // Fallback: use Chart.js
+            riskDecompositionChart = new Chart(ctx, chartConfig);
+        }
+    );
+
+    // If QuickChart succeeded, we don't need the Chart.js instance
+    if (!quickChartSuccess) {
+        console.log('Using Chart.js for risk decomposition');
+    }
 }
 
 /**
@@ -537,8 +1110,571 @@ function formatCurrency(value) {
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+    // Restore scroll position (done after paint for smoother behavior)
+    try {
+        const savedScroll = localStorage.getItem(SCROLL_POS_KEY);
+        if (savedScroll !== null) {
+            setTimeout(() => window.scrollTo(0, parseInt(savedScroll, 10) || 0), 0);
+        }
+    } catch (err) {
+        console.warn('Unable to restore scroll position:', err);
+    }
+
+    loadPortfolioAssetsFromStorage();
+    loadOptimizationParams();
     initNPVTabs();
+    attachOptimizationParamListeners();
+    // Render immediately if storage was empty to ensure empty state shows
+    renderPortfolioAssets();
 });
+
+// Capture scroll position before leaving/reloading the page
+window.addEventListener('beforeunload', () => {
+    try {
+        localStorage.setItem(SCROLL_POS_KEY, window.scrollY.toString());
+    } catch (err) {
+        console.warn('Unable to persist scroll position:', err);
+    }
+});
+
+/**
+ * Efficient Frontier Visualization
+ */
+let efficientFrontierChart = null;
+
+async function plotEfficientFrontier() {
+    if (!portfolioAssets || portfolioAssets.length < 2) {
+        alert('Please add at least 2 assets to generate efficient frontier');
+        return;
+    }
+
+    const tickers = portfolioAssets.map(a => a.ticker);
+    const riskFree = parseFloat(document.getElementById('portfolio-risk-free')?.value || 4.5) / 100;
+
+    // Show loading state
+    const loadingDiv = document.getElementById('efficient-frontier-loading');
+    const canvas = document.getElementById('efficient-frontier-chart');
+    if (loadingDiv) {
+        loadingDiv.style.display = 'block';
+        canvas.style.display = 'none';
+    }
+
+    try {
+        const response = await fetch(`${PORTFOLIO_API_BASE}/api/portfolios/efficient-frontier`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tickers: tickers,
+                lookback_days: 252,
+                n_points: 50,
+                risk_free_rate: riskFree
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to calculate efficient frontier');
+        }
+
+        const data = await response.json();
+        const ctx = document.getElementById('efficient-frontier-chart');
+        if (!ctx) return;
+
+        // Destroy existing chart if it exists
+        if (efficientFrontierChart) {
+            efficientFrontierChart.destroy();
+        }
+
+        // Prepare data
+        const frontierData = data.frontier.map(p => ({
+            x: p.volatility * 100,
+            y: p.return_achieved * 100
+        }));
+
+        const maxSharpePoint = {
+            x: data.max_sharpe_point.volatility * 100,
+            y: data.max_sharpe_point.return_achieved * 100
+        };
+
+        // Add current portfolio if available
+        const currentPortfolio = window.currentPortfolioData ? {
+            x: window.currentPortfolioData.volatility * 100,
+            y: window.currentPortfolioData.expected_return * 100
+        } : null;
+
+        // Build chart configuration with professional theme
+        const chartConfig = {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Efficient Frontier',
+                        data: frontierData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        borderWidth: 3
+                    },
+                    {
+                        label: 'Max Sharpe Portfolio',
+                        data: [maxSharpePoint],
+                        borderColor: '#10b981',
+                        backgroundColor: '#10b981',
+                        pointRadius: 10,
+                        pointStyle: 'star',
+                        pointBorderWidth: 2,
+                        pointBorderColor: '#ffffff'
+                    },
+                    ...(currentPortfolio ? [{
+                        label: 'Current Portfolio',
+                        data: [currentPortfolio],
+                        borderColor: '#f59e0b',
+                        backgroundColor: '#f59e0b',
+                        pointRadius: 8,
+                        pointBorderWidth: 2,
+                        pointBorderColor: '#ffffff'
+                    }] : [])
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 12,
+                                weight: '500'
+                            },
+                            color: '#0f0f0f',
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        titleFont: {
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            size: 13,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            size: 12
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: Return ${context.parsed.y.toFixed(2)}%, Volatility ${context.parsed.x.toFixed(2)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Volatility (%)',
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 13,
+                                weight: '600'
+                            },
+                            color: '#0f0f0f'
+                        },
+                        ticks: {
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 11
+                            },
+                            color: '#6b7280'
+                        },
+                        grid: {
+                            color: 'rgba(107, 114, 128, 0.1)',
+                            drawBorder: false
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Expected Return (%)',
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 13,
+                                weight: '600'
+                            },
+                            color: '#0f0f0f'
+                        },
+                        ticks: {
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 11
+                            },
+                            color: '#6b7280'
+                        },
+                        grid: {
+                            color: 'rgba(107, 114, 128, 0.1)',
+                            drawBorder: false
+                        }
+                    }
+                }
+            }
+        };
+
+        // Try QuickChart first, fallback to Chart.js
+        const quickChartSuccess = await renderChartWithQuickChart(
+            ctx,
+            chartConfig,
+            () => {
+                // Fallback: use Chart.js
+                efficientFrontierChart = new Chart(ctx, chartConfig);
+            }
+        );
+
+        // If QuickChart succeeded, we don't need the Chart.js instance
+        if (!quickChartSuccess) {
+            console.log('Using Chart.js for efficient frontier');
+        }
+
+    } catch (error) {
+        console.error('Efficient frontier error:', error);
+        alert('Failed to generate efficient frontier: ' + error.message);
+    } finally {
+        // Hide loading state
+        const loadingDiv = document.getElementById('efficient-frontier-loading');
+        const canvas = document.getElementById('efficient-frontier-chart');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+            canvas.style.display = 'block';
+        }
+    }
+}
+
+/**
+ * Monte Carlo Simulation
+ */
+let monteCarloChart = null;
+
+async function runMonteCarloSimulation() {
+    if (!portfolioAssets || portfolioAssets.length < 2) {
+        alert('Please add at least 2 assets to run Monte Carlo simulation');
+        return;
+    }
+
+    const tickers = portfolioAssets.map(a => a.ticker);
+    const riskFree = parseFloat(document.getElementById('portfolio-risk-free')?.value || 4.5) / 100;
+
+    // Show loading state
+    const loadingDiv = document.getElementById('monte-carlo-loading');
+    const canvas = document.getElementById('monte-carlo-chart');
+    if (loadingDiv) {
+        loadingDiv.style.display = 'block';
+        canvas.style.display = 'none';
+    }
+
+    try {
+        const response = await fetch(`${PORTFOLIO_API_BASE}/api/portfolios/monte-carlo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tickers: tickers,
+                lookback_days: 252,
+                n_simulations: 1000,
+                time_horizon_days: 252,
+                risk_free_rate: riskFree
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to run Monte Carlo simulation');
+        }
+
+        const data = await response.json();
+        const ctx = document.getElementById('monte-carlo-chart');
+        if (!ctx) return;
+
+        // Destroy existing chart if it exists
+        if (monteCarloChart) {
+            monteCarloChart.destroy();
+        }
+
+        // Prepare scatter plot data
+        const scatterData = data.simulations.map(s => ({
+            x: s.volatility_simulated * 100,
+            y: s.return_simulated * 100
+        }));
+
+        // Add current portfolio if available
+        const currentPortfolio = window.currentPortfolioData ? {
+            x: window.currentPortfolioData.volatility * 100,
+            y: window.currentPortfolioData.expected_return * 100
+        } : null;
+
+        // Build chart configuration with professional theme
+        const chartConfig = {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Random Portfolios',
+                        data: scatterData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                        pointRadius: 3,
+                        pointBorderWidth: 0
+                    },
+                    ...(currentPortfolio ? [{
+                        label: 'Optimized Portfolio',
+                        data: [currentPortfolio],
+                        backgroundColor: '#10b981',
+                        borderColor: '#ffffff',
+                        pointRadius: 10,
+                        pointStyle: 'star',
+                        pointBorderWidth: 2
+                    }] : [])
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 12,
+                                weight: '500'
+                            },
+                            color: '#0f0f0f',
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        titleFont: {
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            size: 13,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            size: 12
+                        },
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                if (context.dataset.label === 'Optimized Portfolio') {
+                                    return `Optimized: Return ${context.parsed.y.toFixed(2)}%, Volatility ${context.parsed.x.toFixed(2)}%`;
+                                }
+                                return `Return ${context.parsed.y.toFixed(2)}%, Volatility ${context.parsed.x.toFixed(2)}%`;
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: `Mean: ${(data.mean_return * 100).toFixed(2)}% return, ${(data.mean_volatility * 100).toFixed(2)}% volatility`,
+                        font: {
+                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            size: 14,
+                            weight: '600'
+                        },
+                        color: '#0f0f0f',
+                        padding: {
+                            top: 10,
+                            bottom: 20
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Volatility (%)',
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 13,
+                                weight: '600'
+                            },
+                            color: '#0f0f0f'
+                        },
+                        ticks: {
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 11
+                            },
+                            color: '#6b7280'
+                        },
+                        grid: {
+                            color: 'rgba(107, 114, 128, 0.1)',
+                            drawBorder: false
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Expected Return (%)',
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 13,
+                                weight: '600'
+                            },
+                            color: '#0f0f0f'
+                        },
+                        ticks: {
+                            font: {
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                size: 11
+                            },
+                            color: '#6b7280'
+                        },
+                        grid: {
+                            color: 'rgba(107, 114, 128, 0.1)',
+                            drawBorder: false
+                        }
+                    }
+                }
+            }
+        };
+
+        // Try QuickChart first, fallback to Chart.js
+        const quickChartSuccess = await renderChartWithQuickChart(
+            ctx,
+            chartConfig,
+            () => {
+                // Fallback: use Chart.js
+                monteCarloChart = new Chart(ctx, chartConfig);
+            }
+        );
+
+        // If QuickChart succeeded, we don't need the Chart.js instance
+        if (!quickChartSuccess) {
+            console.log('Using Chart.js for Monte Carlo');
+        }
+
+    } catch (error) {
+        console.error('Monte Carlo error:', error);
+        alert('Failed to run Monte Carlo simulation: ' + error.message);
+    } finally {
+        // Hide loading state
+        const loadingDiv = document.getElementById('monte-carlo-loading');
+        const canvas = document.getElementById('monte-carlo-chart');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+            canvas.style.display = 'block';
+        }
+    }
+}
+
+/**
+ * Portfolio Save/Export Functions
+ */
+function savePortfolioToLocalStorage() {
+    if (!window.currentPortfolioData) {
+        alert('No portfolio to save. Please optimize a portfolio first.');
+        return;
+    }
+
+    const portfolioName = prompt('Enter a name for this portfolio:', 'My Portfolio ' + new Date().toLocaleDateString());
+    if (!portfolioName) return;
+
+    const portfolioData = {
+        name: portfolioName,
+        timestamp: new Date().toISOString(),
+        assets: portfolioAssets,
+        optimization: window.currentPortfolioData,
+        strategy: document.getElementById('portfolio-strategy')?.value || 'max_sharpe',
+        riskFreeRate: parseFloat(document.getElementById('portfolio-risk-free')?.value || 4.5)
+    };
+
+    // Get existing portfolios or initialize empty array
+    let savedPortfolios = JSON.parse(localStorage.getItem('savedPortfolios') || '[]');
+    savedPortfolios.push(portfolioData);
+
+    // Save to localStorage
+    localStorage.setItem('savedPortfolios', JSON.stringify(savedPortfolios));
+
+    alert(`Portfolio "${portfolioName}" saved successfully! (${savedPortfolios.length} total portfolios saved)`);
+}
+
+function exportPortfolioToCSV() {
+    if (!window.currentPortfolioData) {
+        alert('No portfolio to export. Please optimize a portfolio first.');
+        return;
+    }
+
+    const data = window.currentPortfolioData;
+    const holdings = data.holdings || [];
+
+    // Create CSV content
+    let csvContent = 'Ticker,Weight (%),Expected Return (%),Volatility (%),Risk Contribution (%)\n';
+
+    holdings.forEach(h => {
+        csvContent += `${h.ticker},`;
+        csvContent += `${(h.weight * 100).toFixed(2)},`;
+        csvContent += `${(h.expected_return * 100).toFixed(2)},`;
+        csvContent += `${(h.volatility * 100).toFixed(2)},`;
+        csvContent += `${(h.contribution_to_risk * 100).toFixed(2)}\n`;
+    });
+
+    // Add summary metrics
+    csvContent += '\nPortfolio Summary\n';
+    csvContent += `Expected Return (%),${ (data.expected_return * 100).toFixed(2)}\n`;
+    csvContent += `Volatility (%),${ (data.volatility * 100).toFixed(2)}\n`;
+    csvContent += `Sharpe Ratio,${data.sharpe_ratio.toFixed(3)}\n`;
+    csvContent += `Strategy,${data.strategy}\n`;
+    csvContent += `Generated,${new Date().toISOString()}\n`;
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `portfolio_${Date.now()}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function loadSavedPortfolios() {
+    const savedPortfolios = JSON.parse(localStorage.getItem('savedPortfolios') || '[]');
+
+    if (savedPortfolios.length === 0) {
+        alert('No saved portfolios found.');
+        return;
+    }
+
+    // Create a simple list for the user to select from
+    let listText = 'Saved Portfolios:\n\n';
+    savedPortfolios.forEach((p, idx) => {
+        listText += `${idx + 1}. ${p.name} (${new Date(p.timestamp).toLocaleDateString()})\n`;
+    });
+
+    alert(listText + '\n(Full portfolio management UI coming soon)');
+}
 
 // Make functions globally available
 window.calculateDCF = calculateDCF;
@@ -546,4 +1682,11 @@ window.addPortfolioAsset = addPortfolioAsset;
 window.removePortfolioAsset = removePortfolioAsset;
 window.optimizePortfolio = optimizePortfolio;
 window.analyzeSentiment = analyzeSentiment;
-
+window.plotEfficientFrontier = plotEfficientFrontier;
+window.runMonteCarloSimulation = runMonteCarloSimulation;
+window.calculateRiskAnalytics = calculateRiskAnalytics;
+window.displayRiskAnalytics = displayRiskAnalytics;
+window.plotRiskDecomposition = plotRiskDecomposition;
+window.savePortfolioToLocalStorage = savePortfolioToLocalStorage;
+window.exportPortfolioToCSV = exportPortfolioToCSV;
+window.loadSavedPortfolios = loadSavedPortfolios;
