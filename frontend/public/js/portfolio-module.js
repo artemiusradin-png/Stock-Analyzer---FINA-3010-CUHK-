@@ -27,7 +27,7 @@ function getPortfolioAPIBase() {
 const PORTFOLIO_API_BASE = getPortfolioAPIBase();
 
 // Portfolio assets storage with enhanced metadata
-// Each asset can have: { ticker, weight, companyName, npvData, currency, exchange }
+// Each asset can have: { ticker, weight, companyName, npvData, dcfData, currency, exchange, source }
 let portfolioAssets = [];
 
 // Make portfolioAssets accessible globally for adding from other modules
@@ -188,21 +188,21 @@ function initNPVTabs() {
     const tabContents = document.querySelectorAll('.npv-tab-content');
 
     const activateTab = (tabName) => {
-        // Remove active class from all buttons and hide all contents
-        tabButtons.forEach(b => b.classList.remove('active'));
-        tabContents.forEach(c => {
-            c.classList.remove('active');
-            c.style.display = 'none';
-        });
+            // Remove active class from all buttons and hide all contents
+            tabButtons.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => {
+                c.classList.remove('active');
+                c.style.display = 'none';
+            });
 
-        // Add active class to clicked button and show corresponding content
+            // Add active class to clicked button and show corresponding content
         const targetButton = Array.from(tabButtons).find(b => b.dataset.tab === tabName);
         const targetContent = document.getElementById(`${tabName}-tab`);
         if (targetButton) targetButton.classList.add('active');
-        if (targetContent) {
-            targetContent.classList.add('active');
-            targetContent.style.display = 'block';
-        }
+            if (targetContent) {
+                targetContent.classList.add('active');
+                targetContent.style.display = 'block';
+            }
         // Toggle sub-tabs visibility based on top-level tab
         const subTabsContainer = document.querySelector('.npv-sub-tabs-container');
         if (subTabsContainer) {
@@ -375,23 +375,27 @@ function displayDCFResults(data) {
  * Portfolio Optimization Functions
  */
 function addPortfolioAsset(assetData = null) {
-    let ticker, companyName, npvData, currency, exchange;
+    let ticker, companyName, npvData, dcfData, currency, exchange, source;
 
     if (assetData && typeof assetData === 'object') {
         // Called programmatically with rich data from AI NPV
         ticker = assetData.ticker?.trim().toUpperCase();
         companyName = assetData.companyName || '';
         npvData = assetData.npvData || null;
+        dcfData = assetData.dcfData || null;
         currency = assetData.currency || 'USD';
         exchange = assetData.exchange || '';
+        source = assetData.source || '';
     } else {
         // Called from UI input
         const tickerInput = document.getElementById('portfolio-ticker-input');
         ticker = tickerInput.value.trim().toUpperCase();
         companyName = '';
         npvData = null;
+        dcfData = null;
         currency = 'USD';
         exchange = '';
+        source = 'manual';
     }
 
     if (!ticker) {
@@ -409,8 +413,10 @@ function addPortfolioAsset(assetData = null) {
         weight: 0,
         companyName: companyName,
         npvData: npvData,
+        dcfData: dcfData,
         currency: currency,
-        exchange: exchange
+        exchange: exchange,
+        source: source
     });
 
     // Update global reference
@@ -424,6 +430,7 @@ function addPortfolioAsset(assetData = null) {
     }
 
     renderPortfolioAssets();
+    showPortfolioSuccess(`${ticker} added to portfolio`);
 }
 
 function removePortfolioAsset(ticker) {
@@ -452,8 +459,14 @@ function renderPortfolioAssets() {
             : `<span style="font-weight: 600; color: #0f0f0f;">${asset.ticker}</span>`;
 
         const npvBadge = asset.npvData
-            ? `<span style="padding: 0.25rem 0.5rem; background: ${asset.npvData.npv >= 0 ? '#d1fae5' : '#fee2e2'}; color: ${asset.npvData.npv >= 0 ? '#065f46' : '#991b1b'}; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 0.5rem;">
+            ? `<span style="padding: 0.25rem 0.5rem; background: ${asset.npvData.npv >= 0 ? '#d1fae5' : '#fee2e2'}; color: ${asset.npvData.npv >= 0 ? '#065f46' : '#991b1b'}; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 0.35rem;">
                 NPV: ${asset.npvData.npv >= 0 ? '+' : ''}${asset.npvData.npv.toFixed(2)}
+               </span>`
+            : '';
+
+        const dcfBadge = asset.dcfData
+            ? `<span style="padding: 0.25rem 0.5rem; background: #e0f2fe; color: #0ea5e9; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 0.35rem;">
+                DCF
                </span>`
             : '';
 
@@ -461,7 +474,7 @@ function renderPortfolioAssets() {
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: ${asset.npvData ? '#f0fdf4' : '#f9fafb'}; border: 1px solid ${asset.npvData ? '#86efac' : '#e5e5e5'}; border-radius: 6px; margin-bottom: 0.5rem;">
             ${displayName}
             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                ${npvBadge}
+                ${npvBadge}${dcfBadge}
                 <button onclick="removePortfolioAsset('${asset.ticker}')" style="padding: 0.35rem 0.75rem; background: #ffffff; border: 1px solid #ef4444; border-radius: 4px; color: #ef4444; cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: all 0.2s ease;">Remove</button>
             </div>
         </div>
@@ -539,8 +552,28 @@ function showPortfolioError(message) {
     }, 5000);
 }
 
+function showPortfolioSuccess(message) {
+    const errorDiv = document.getElementById('portfolio-error-message');
+    if (!errorDiv) return;
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    errorDiv.style.color = '#065f46';
+    errorDiv.style.background = '#d1fae5';
+    errorDiv.style.border = '1px solid #10b981';
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+        errorDiv.style.color = '';
+        errorDiv.style.background = '';
+        errorDiv.style.border = '';
+    }, 5000);
+}
+
 function displayPortfolioResults(data) {
-    const container = document.getElementById('portfolio-results-container');
+    const metricsContainer = document.getElementById('portfolio-metrics-container');
+    const resultsContainer = document.getElementById('portfolio-results-container');
+    const statusEl = document.getElementById('portfolio-optimization-status');
+    const titleEl = document.getElementById('portfolio-optimization-title');
+    const strategyEl = document.getElementById('portfolio-optimization-strategy');
 
     const expectedReturn = ((data.expected_return || 0) * 100).toFixed(2);
     const volatility = ((data.volatility || 0) * 100).toFixed(2);
@@ -557,18 +590,27 @@ function displayPortfolioResults(data) {
     // Store data globally for efficient frontier and Monte Carlo
     window.currentPortfolioData = data;
 
-    container.innerHTML = `
-        <div class="portfolio-results-shell">
-            <div class="portfolio-results-header">
+    // Update panel header (outside of results box)
+    if (statusEl) statusEl.textContent = 'Optimization complete';
+    if (titleEl) titleEl.textContent = 'Portfolio Metrics';
+    if (strategyEl) strategyEl.textContent = `Strategy: ${strategyLabel}`;
+    const metricsPanelHeader = document.querySelector('#portfolio-metrics-container')?.previousElementSibling;
+    if (metricsPanelHeader && metricsPanelHeader.classList.contains('panel-header')) {
+        metricsPanelHeader.style.display = 'none';
+    }
+
+    // Display Portfolio Metrics in separate container
+    metricsContainer.innerHTML = `
+        <div class="portfolio-results-shell metrics-shell">
+            <div class="metrics-heading">
                 <div>
-                    <p class="eyebrow">Optimization complete</p>
                     <h3>Portfolio Metrics</h3>
-                    <p class="muted">Strategy: ${strategyLabel}</p>
-                </div>
-                <div class="portfolio-actions">
+                    <p class="muted">Weights, expected return, volatility, and Sharpe</p>
+            </div>
+                <div class="portfolio-actions" style="justify-content: flex-end;">
                     <button class="ghost-button" onclick="exportPortfolioToCSV()">Export CSV</button>
                     <button class="primary-button" onclick="savePortfolioToLocalStorage()">Save Portfolio</button>
-                </div>
+            </div>
             </div>
 
             <div class="portfolio-metrics-grid">
@@ -586,8 +628,8 @@ function displayPortfolioResults(data) {
                     <div class="metric-label">Sharpe Ratio</div>
                     <div class="metric-value">${sharpeRatio}</div>
                     <div class="metric-sub">Risk-adjusted</div>
-                </div>
             </div>
+        </div>
 
             ${data.holdings && data.holdings.length > 0 ? `
                 <div class="allocation-card">
@@ -600,16 +642,16 @@ function displayPortfolioResults(data) {
                     </div>
                     <div class="portfolio-table-wrap">
                         <table class="portfolio-table">
-                            <thead>
-                                <tr>
-                                    <th>Ticker</th>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
                                     <th class="number">Weight</th>
                                     <th class="number">Exp. Return</th>
                                     <th class="number">Volatility</th>
                                     <th class="number">Risk Contrib.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        </tr>
+                    </thead>
+                    <tbody>
                                 ${data.holdings.map(h => `
                                     <tr>
                                         <td><span class="ticker-chip">${h.ticker}</span></td>
@@ -617,14 +659,19 @@ function displayPortfolioResults(data) {
                                         <td class="number">${((h.expected_return || 0) * 100).toFixed(2)}%</td>
                                         <td class="number">${((h.volatility || 0) * 100).toFixed(2)}%</td>
                                         <td class="number">${((h.contribution_to_risk || 0) * 100).toFixed(2)}%</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
                     </div>
-                </div>
-            ` : ''}
+            </div>
+        ` : ''}
+        </div>
+    `;
 
+    // Display charts in separate container
+    resultsContainer.innerHTML = `
+        <div class="portfolio-results-shell">
             <div class="portfolio-chart-grid">
                 <div class="chart-card">
                     <div class="chart-card-header">
@@ -703,14 +750,37 @@ async function calculateRiskAnalytics() {
 }
 
 function displayRiskAnalytics(data) {
-    // Find or create risk analytics container
+    // Find or create risk analytics container - make it full-width
     let container = document.getElementById('risk-analytics-container');
     if (!container) {
-        // Create container after portfolio results
-        const resultsContainer = document.getElementById('portfolio-results-container');
-        container = document.createElement('div');
-        container.id = 'risk-analytics-container';
-        resultsContainer.parentElement.appendChild(container);
+        // Create container after portfolio results section, outside of panels but within the tab
+        const portfolioTab = document.getElementById('portfolio-optimization-tab');
+        if (portfolioTab) {
+            // Find the panels container (the div containing all panels)
+            const panelsContainer = portfolioTab.querySelector('.npv-tabs-row')?.nextElementSibling;
+            if (panelsContainer && panelsContainer.classList.contains('npv-tabs-row')) {
+                // Insert after the panels row
+                container = document.createElement('div');
+                container.id = 'risk-analytics-container';
+                container.className = 'risk-analytics-full-width';
+                panelsContainer.parentElement.insertBefore(container, panelsContainer.nextSibling);
+            } else {
+                // Fallback: append to tab
+                container = document.createElement('div');
+                container.id = 'risk-analytics-container';
+                container.className = 'risk-analytics-full-width';
+                portfolioTab.appendChild(container);
+            }
+        } else {
+            // Fallback: create after portfolio results
+            const resultsContainer = document.getElementById('portfolio-results-container');
+            if (resultsContainer) {
+                container = document.createElement('div');
+                container.id = 'risk-analytics-container';
+                container.className = 'risk-analytics-full-width';
+                resultsContainer.parentElement.parentElement.appendChild(container);
+            }
+        }
     }
 
     const metrics = data.portfolio_metrics;
@@ -727,101 +797,95 @@ function displayRiskAnalytics(data) {
                 <div class="pill soft">Risk snapshot</div>
             </div>
 
-            <div class="risk-grid two">
-                <div class="risk-card">
-                    <div class="risk-card-title">Volatility Metrics</div>
-                    <div class="risk-metrics">
-                        <div class="metric-item">
-                            <div class="metric-label">Annualized Volatility</div>
-                            <div class="metric-value">${(metrics.annualized_volatility * 100).toFixed(2)}%</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Downside Volatility</div>
-                            <div class="metric-value">${(metrics.downside_volatility * 100).toFixed(2)}%</div>
-                        </div>
+            <div class="risk-vertical-list">
+                <div class="risk-section">
+                    <div class="risk-section-title">Volatility Metrics</div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Annualized Volatility</span>
+                        <span class="risk-metric-value">${(metrics.annualized_volatility * 100).toFixed(2)}%</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Downside Volatility</span>
+                        <span class="risk-metric-value">${(metrics.downside_volatility * 100).toFixed(2)}%</span>
                     </div>
                 </div>
 
-                <div class="risk-card">
-                    <div class="risk-card-title">Downside Risk</div>
-                    <div class="risk-metrics three">
-                        <div class="metric-item">
-                            <div class="metric-label">VaR (95%)</div>
-                            <div class="metric-value">${(metrics.value_at_risk * 100).toFixed(2)}%</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">CVaR (ES)</div>
-                            <div class="metric-value">${(metrics.conditional_value_at_risk * 100).toFixed(2)}%</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Max Drawdown</div>
-                            <div class="metric-value">${(metrics.max_drawdown * 100).toFixed(2)}%</div>
-                        </div>
+                <div class="risk-section">
+                    <div class="risk-section-title">Downside Risk</div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">VaR (95%)</span>
+                        <span class="risk-metric-value">${(metrics.value_at_risk * 100).toFixed(2)}%</span>
                     </div>
-                </div>
-            </div>
-
-            <div class="risk-grid three">
-                <div class="risk-card">
-                    <div class="risk-card-title">Risk-Adjusted Returns</div>
-                    <div class="risk-metrics three">
-                        <div class="metric-item">
-                            <div class="metric-label">Sharpe</div>
-                            <div class="metric-value">${metrics.sharpe_ratio.toFixed(3)}</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Sortino</div>
-                            <div class="metric-value">${metrics.sortino_ratio.toFixed(3)}</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Calmar</div>
-                            <div class="metric-value">${metrics.calmar_ratio.toFixed(3)}</div>
-                        </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">CVaR (ES)</span>
+                        <span class="risk-metric-value">${(metrics.conditional_value_at_risk * 100).toFixed(2)}%</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Max Drawdown</span>
+                        <span class="risk-metric-value">${(metrics.max_drawdown * 100).toFixed(2)}%</span>
                     </div>
                 </div>
 
-                <div class="risk-card">
-                    <div class="risk-card-title">Distribution</div>
-                    <div class="risk-metrics two">
-                        <div class="metric-item">
-                            <div class="metric-label">Skewness</div>
-                            <div class="metric-value">${metrics.skewness.toFixed(3)}</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Kurtosis</div>
-                            <div class="metric-value">${metrics.kurtosis.toFixed(3)}</div>
-                        </div>
+                <div class="risk-section">
+                    <div class="risk-section-title">Risk-Adjusted Returns</div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Sharpe</span>
+                        <span class="risk-metric-value">${metrics.sharpe_ratio.toFixed(3)}</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Sortino</span>
+                        <span class="risk-metric-value">${metrics.sortino_ratio.toFixed(3)}</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Calmar</span>
+                        <span class="risk-metric-value">${metrics.calmar_ratio.toFixed(3)}</span>
+                    </div>
+                </div>
+
+                <div class="risk-section">
+                    <div class="risk-section-title">Distribution</div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Skewness</span>
+                        <span class="risk-metric-value">${metrics.skewness.toFixed(3)}</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Kurtosis</span>
+                        <span class="risk-metric-value">${metrics.kurtosis.toFixed(3)}</span>
                     </div>
                 </div>
 
                 ${metrics.beta !== null ? `
-                <div class="risk-card">
-                    <div class="risk-card-title">Market Risk (vs SPY)</div>
-                    <div class="risk-metrics three">
-                        <div class="metric-item">
-                            <div class="metric-label">Beta</div>
-                            <div class="metric-value">${metrics.beta.toFixed(3)}</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Alpha (Annual)</div>
-                            <div class="metric-value">${(metrics.alpha * 100).toFixed(2)}%</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">R-Squared</div>
-                            <div class="metric-value">${(metrics.r_squared * 100).toFixed(1)}%</div>
-                        </div>
+                <div class="risk-section">
+                    <div class="risk-section-title">Market Risk (vs SPY)</div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Beta</span>
+                        <span class="risk-metric-value">${metrics.beta.toFixed(3)}</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Alpha (Annual)</span>
+                        <span class="risk-metric-value">${(metrics.alpha * 100).toFixed(2)}%</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">R-Squared</span>
+                        <span class="risk-metric-value">${(metrics.r_squared * 100).toFixed(1)}%</span>
                     </div>
                 </div>
                 ` : ''}
-            </div>
 
-            <div class="risk-grid two">
-                <div class="risk-card">
-                    <div class="risk-card-title">Risk Decomposition</div>
-                    <canvas id="risk-decomposition-chart"></canvas>
+                <div class="risk-section">
+                    <div class="risk-section-title">Risk Components</div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Systematic (Market)</span>
+                        <span class="risk-metric-value">${(data.systematic_risk * 100).toFixed(2)}%</span>
+                    </div>
+                    <div class="risk-metric-row">
+                        <span class="risk-metric-label">Idiosyncratic (Specific)</span>
+                        <span class="risk-metric-value">${(data.idiosyncratic_risk * 100).toFixed(2)}%</span>
+                    </div>
                 </div>
-                <div class="risk-card">
-                    <div class="risk-card-title">Contribution by Asset</div>
+
+                <div class="risk-section">
+                    <div class="risk-section-title">Contribution by Asset</div>
                     <div class="portfolio-table-wrap">
                         <table class="portfolio-table risk-table">
                             <thead>
@@ -843,20 +907,11 @@ function displayRiskAnalytics(data) {
                         </table>
                     </div>
                 </div>
-            </div>
 
-            <div class="risk-grid two">
-                <div class="risk-card">
-                    <div class="risk-card-title">Risk Components</div>
-                    <div class="risk-metrics two">
-                        <div class="metric-item">
-                            <div class="metric-label">Systematic (Market)</div>
-                            <div class="metric-value">${(data.systematic_risk * 100).toFixed(2)}%</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-label">Idiosyncratic (Specific)</div>
-                            <div class="metric-value">${(data.idiosyncratic_risk * 100).toFixed(2)}%</div>
-                        </div>
+                <div class="risk-section">
+                    <div class="risk-section-title">Risk Decomposition Chart</div>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="risk-decomposition-chart"></canvas>
                     </div>
                 </div>
             </div>
@@ -889,57 +944,71 @@ async function plotRiskDecomposition(decomposition) {
             datasets: [{
                 data: data,
                 backgroundColor: [
-                    '#3b82f6',
-                    '#10b981',
-                    '#f59e0b',
-                    '#ef4444',
-                    '#8b5cf6',
-                    '#ec4899',
-                    '#14b8a6',
-                    '#f97316'
+                    '#0f0f0f',
+                    '#1a1a1a',
+                    '#52525b',
+                    '#71717a',
+                    '#a1a1aa',
+                    '#d4d4d8',
+                    '#e4e4e7',
+                    '#f4f4f5'
                 ],
                 borderColor: '#ffffff',
-                borderWidth: 3,
-                hoverBorderWidth: 4,
-                hoverOffset: 8
+                borderWidth: 2,
+                hoverBorderWidth: 3,
+                hoverOffset: 6
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
+            aspectRatio: 1.8,
+            layout: {
+                padding: {
+                    left: 0,
+                    right: 0,
+                    top: 10,
+                    bottom: 10
+                }
+            },
             plugins: {
                 legend: {
-                    position: 'bottom',
+                    position: 'right',
+                    align: 'start',
+                    display: true,
+                    fullSize: true,
                     labels: {
                         font: {
                             family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            size: 12,
-                            weight: '500'
+                            size: 18,
+                            weight: '700'
                         },
                         color: '#0f0f0f',
-                        padding: 15,
+                        padding: 18,
                         usePointStyle: true,
                         pointStyle: 'circle',
-                        boxWidth: 12,
-                        boxHeight: 12
+                        boxWidth: 16,
+                        boxHeight: 16
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                    backgroundColor: '#0f0f0f',
                     titleColor: '#ffffff',
                     bodyColor: '#ffffff',
                     titleFont: {
                         family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                        size: 13,
+                        size: 12,
                         weight: '600'
                     },
                     bodyFont: {
                         family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                        size: 12
+                        size: 11
                     },
-                    padding: 12,
-                    cornerRadius: 8,
+                    padding: 10,
+                    cornerRadius: 4,
                     displayColors: true,
+                    borderColor: '#1a1a1a',
+                    borderWidth: 1,
                     callbacks: {
                         label: function(context) {
                             return `${context.label}: ${context.parsed.toFixed(2)}% of risk`;
@@ -947,37 +1016,16 @@ async function plotRiskDecomposition(decomposition) {
                     }
                 },
                 title: {
-                    display: true,
-                    text: 'Risk Contribution by Asset',
-                    font: {
-                        family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                        size: 14,
-                        weight: '600'
-                    },
-                    color: '#0f0f0f',
-                    padding: {
-                        top: 10,
-                        bottom: 20
-                    }
+                    display: false
                 }
             }
         }
     };
 
-    // Try QuickChart first, fallback to Chart.js
-    const quickChartSuccess = await renderChartWithQuickChart(
-        ctx,
-        chartConfig,
-        () => {
-            // Fallback: use Chart.js
-            riskDecompositionChart = new Chart(ctx, chartConfig);
-        }
-    );
-
-    // If QuickChart succeeded, we don't need the Chart.js instance
-    if (!quickChartSuccess) {
-        console.log('Using Chart.js for risk decomposition');
-    }
+    // Use Chart.js directly for risk decomposition to ensure legend positioning works
+    // QuickChart API may not properly support right-side legend positioning
+    riskDecompositionChart = new Chart(ctx, chartConfig);
+    console.log('Using Chart.js for risk decomposition with right-side legend');
 }
 
 /**
@@ -1211,29 +1259,29 @@ async function plotEfficientFrontier() {
                     {
                         label: 'Efficient Frontier',
                         data: frontierData,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                        borderColor: '#0f0f0f',
+                        backgroundColor: 'rgba(15, 15, 15, 0.05)',
                         fill: true,
                         tension: 0.4,
                         pointRadius: 0,
-                        borderWidth: 3
+                        borderWidth: 2
                     },
                     {
                         label: 'Max Sharpe Portfolio',
                         data: [maxSharpePoint],
-                        borderColor: '#10b981',
-                        backgroundColor: '#10b981',
-                        pointRadius: 10,
-                        pointStyle: 'star',
+                        borderColor: '#0f0f0f',
+                        backgroundColor: '#0f0f0f',
+                        pointRadius: 8,
+                        pointStyle: 'circle',
                         pointBorderWidth: 2,
                         pointBorderColor: '#ffffff'
                     },
                     ...(currentPortfolio ? [{
                         label: 'Current Portfolio',
                         data: [currentPortfolio],
-                        borderColor: '#f59e0b',
-                        backgroundColor: '#f59e0b',
-                        pointRadius: 8,
+                        borderColor: '#71717a',
+                        backgroundColor: '#71717a',
+                        pointRadius: 6,
                         pointBorderWidth: 2,
                         pointBorderColor: '#ffffff'
                     }] : [])
@@ -1249,31 +1297,35 @@ async function plotEfficientFrontier() {
                         labels: {
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 12,
-                                weight: '500'
+                                size: 11,
+                                weight: '600'
                             },
                             color: '#0f0f0f',
-                            padding: 15,
+                            padding: 12,
                             usePointStyle: true,
-                            pointStyle: 'circle'
+                            pointStyle: 'circle',
+                            boxWidth: 10,
+                            boxHeight: 10
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                        backgroundColor: '#0f0f0f',
                         titleColor: '#ffffff',
                         bodyColor: '#ffffff',
                         titleFont: {
                             family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            size: 13,
+                            size: 12,
                             weight: '600'
                         },
                         bodyFont: {
                             family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            size: 12
+                            size: 11
                         },
-                        padding: 12,
-                        cornerRadius: 8,
+                        padding: 10,
+                        cornerRadius: 4,
                         displayColors: true,
+                        borderColor: '#1a1a1a',
+                        borderWidth: 1,
                         callbacks: {
                             label: function(context) {
                                 return `${context.dataset.label}: Return ${context.parsed.y.toFixed(2)}%, Volatility ${context.parsed.x.toFixed(2)}%`;
@@ -1288,7 +1340,7 @@ async function plotEfficientFrontier() {
                             text: 'Volatility (%)',
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 13,
+                                size: 11,
                                 weight: '600'
                             },
                             color: '#0f0f0f'
@@ -1296,13 +1348,14 @@ async function plotEfficientFrontier() {
                         ticks: {
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 11
+                                size: 10
                             },
-                            color: '#6b7280'
+                            color: '#71717a'
                         },
                         grid: {
-                            color: 'rgba(107, 114, 128, 0.1)',
-                            drawBorder: false
+                            color: '#e5e5e5',
+                            drawBorder: false,
+                            lineWidth: 1
                         }
                     },
                     y: {
@@ -1311,7 +1364,7 @@ async function plotEfficientFrontier() {
                             text: 'Expected Return (%)',
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 13,
+                                size: 11,
                                 weight: '600'
                             },
                             color: '#0f0f0f'
@@ -1319,13 +1372,14 @@ async function plotEfficientFrontier() {
                         ticks: {
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 11
+                                size: 10
                             },
-                            color: '#6b7280'
+                            color: '#71717a'
                         },
                         grid: {
-                            color: 'rgba(107, 114, 128, 0.1)',
-                            drawBorder: false
+                            color: '#e5e5e5',
+                            drawBorder: false,
+                            lineWidth: 1
                         }
                     }
                 }
@@ -1431,18 +1485,18 @@ async function runMonteCarloSimulation() {
                     {
                         label: 'Random Portfolios',
                         data: scatterData,
-                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                        borderColor: 'rgba(59, 130, 246, 0.4)',
-                        pointRadius: 3,
+                        backgroundColor: 'rgba(15, 15, 15, 0.15)',
+                        borderColor: 'rgba(15, 15, 15, 0.3)',
+                        pointRadius: 2.5,
                         pointBorderWidth: 0
                     },
                     ...(currentPortfolio ? [{
                         label: 'Optimized Portfolio',
                         data: [currentPortfolio],
-                        backgroundColor: '#10b981',
+                        backgroundColor: '#0f0f0f',
                         borderColor: '#ffffff',
-                        pointRadius: 10,
-                        pointStyle: 'star',
+                        pointRadius: 8,
+                        pointStyle: 'circle',
                         pointBorderWidth: 2
                     }] : [])
                 ]
@@ -1457,31 +1511,35 @@ async function runMonteCarloSimulation() {
                         labels: {
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 12,
-                                weight: '500'
+                                size: 11,
+                                weight: '600'
                             },
                             color: '#0f0f0f',
-                            padding: 15,
+                            padding: 12,
                             usePointStyle: true,
-                            pointStyle: 'circle'
+                            pointStyle: 'circle',
+                            boxWidth: 10,
+                            boxHeight: 10
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                        backgroundColor: '#0f0f0f',
                         titleColor: '#ffffff',
                         bodyColor: '#ffffff',
                         titleFont: {
                             family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            size: 13,
+                            size: 12,
                             weight: '600'
                         },
                         bodyFont: {
                             family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            size: 12
+                            size: 11
                         },
-                        padding: 12,
-                        cornerRadius: 8,
+                        padding: 10,
+                        cornerRadius: 4,
                         displayColors: true,
+                        borderColor: '#1a1a1a',
+                        borderWidth: 1,
                         callbacks: {
                             label: function(context) {
                                 if (context.dataset.label === 'Optimized Portfolio') {
@@ -1492,18 +1550,7 @@ async function runMonteCarloSimulation() {
                         }
                     },
                     title: {
-                        display: true,
-                        text: `Mean: ${(data.mean_return * 100).toFixed(2)}% return, ${(data.mean_volatility * 100).toFixed(2)}% volatility`,
-                        font: {
-                            family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            size: 14,
-                            weight: '600'
-                        },
-                        color: '#0f0f0f',
-                        padding: {
-                            top: 10,
-                            bottom: 20
-                        }
+                        display: false
                     }
                 },
                 scales: {
@@ -1513,7 +1560,7 @@ async function runMonteCarloSimulation() {
                             text: 'Volatility (%)',
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 13,
+                                size: 11,
                                 weight: '600'
                             },
                             color: '#0f0f0f'
@@ -1521,13 +1568,14 @@ async function runMonteCarloSimulation() {
                         ticks: {
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 11
+                                size: 10
                             },
-                            color: '#6b7280'
+                            color: '#71717a'
                         },
                         grid: {
-                            color: 'rgba(107, 114, 128, 0.1)',
-                            drawBorder: false
+                            color: '#e5e5e5',
+                            drawBorder: false,
+                            lineWidth: 1
                         }
                     },
                     y: {
@@ -1536,7 +1584,7 @@ async function runMonteCarloSimulation() {
                             text: 'Expected Return (%)',
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 13,
+                                size: 11,
                                 weight: '600'
                             },
                             color: '#0f0f0f'
@@ -1544,13 +1592,14 @@ async function runMonteCarloSimulation() {
                         ticks: {
                             font: {
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                                size: 11
+                                size: 10
                             },
-                            color: '#6b7280'
+                            color: '#71717a'
                         },
                         grid: {
-                            color: 'rgba(107, 114, 128, 0.1)',
-                            drawBorder: false
+                            color: '#e5e5e5',
+                            drawBorder: false,
+                            lineWidth: 1
                         }
                     }
                 }

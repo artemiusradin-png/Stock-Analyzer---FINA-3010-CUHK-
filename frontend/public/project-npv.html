@@ -14,10 +14,11 @@
     <link rel="stylesheet" href="css/components.css?v=49">
     <link rel="stylesheet" href="css/animations.css?v=49">
     <link rel="stylesheet" href="css/responsive.css?v=49">
-    <link rel="stylesheet" href="css/project-npv-overrides.css?v=55">
+    <link rel="stylesheet" href="css/project-npv-overrides.css?v=72">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="js/lib/simplex-noise.js"></script>
 
     <script>
       // Automatic API configuration - tries multiple backends in order
@@ -344,12 +345,12 @@
         }
 
         .npv-tab-btn {
-            padding: var(--spacing-md) var(--spacing-2xl);
+            padding: 0.95rem 1.75rem;
             background: var(--color-bg-primary);
             border: 1px solid var(--color-border-secondary);
             border-bottom: 2px solid transparent;
             color: var(--color-text-secondary);
-            font-size: var(--font-size-base);
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
@@ -687,7 +688,7 @@
         }
 
         .npv-tab-btn.has-ai-toggle {
-            padding-right: 5.5rem;
+            padding-right: 6rem;
         }
         
         .ai-toggle-pill {
@@ -695,9 +696,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 100px;
+            min-width: 120px;
             height: auto;
-            padding: 0.625rem 1.5rem;
+            padding: 0.75rem 1.65rem;
             margin: 0;
             background: var(--color-bg-secondary);
             border: 1.5px solid var(--color-border-primary);
@@ -1160,36 +1161,48 @@
             transform: translateY(0);
         }
 
-        /* Company DCF Page Layout Improvements */
+        /* Company DCF - compact layout */
         #company-dcf-view .content-grid {
-            max-width: 1600px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 0 1rem;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
+            grid-template-columns: minmax(520px, 1.05fr) minmax(420px, 0.95fr);
+            gap: 1.25rem;
             align-items: start;
         }
 
         #company-dcf-view .panel {
             align-self: start;
             width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
         }
 
-        #company-dcf-view .panel-header {
-            padding: 1.5rem;
-        }
-
+        #company-dcf-view .panel-header,
         #company-dcf-view .panel-content {
-            padding: 1.5rem;
+            padding: 1.15rem !important;
+        }
+
+        #company-dcf-view .panel-title {
+            font-size: 1.08rem;
+            letter-spacing: -0.01em;
+        }
+
+        #company-dcf-view .panel-subtitle {
+            font-size: 0.9rem;
+            color: #6b7280;
         }
 
         #company-dcf-view .input-section {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
         }
 
         #company-dcf-view .section-title {
-            margin-bottom: 1rem;
-            font-size: 0.9375rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.875rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #111827;
         }
 
         #company-dcf-view .field-grid {
@@ -1198,9 +1211,55 @@
             gap: 1rem;
         }
 
+        /* Make inputs/labels inside Company DCF more compact and professional */
+        #company-dcf-view .input-field {
+            margin-bottom: 0.75rem;
+        }
+
+        #portfolio-optimization-tab .input-field {
+            margin-bottom: 0.5rem;
+        }
+
+        #company-dcf-view .input-label {
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+
+        #company-dcf-view .input {
+            padding: 0.45rem 0.55rem;
+            height: auto;
+            font-size: 0.8rem;
+        }
+
+        #company-dcf-view .panel-header .panel-title {
+            font-size: 0.95rem;
+        }
+
+        #company-dcf-view .panel-header .panel-subtitle {
+            font-size: 0.8rem;
+        }
+
+        #company-dcf-view .calculate-button {
+            padding: 0.68rem 1rem;
+            font-size: 0.88rem;
+            border-radius: 8px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #company-dcf-view .cta-row {
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         #dcf-company-info-panel {
             border-radius: 8px;
-            padding: 1rem;
+            padding: 0.9rem;
             border: 1px solid #e5e5e5;
             background: #fafafa;
         }
@@ -1210,7 +1269,7 @@
         }
 
         #dcf-data-source-container {
-            max-height: 280px;
+            max-height: 260px;
             overflow-y: auto;
         }
 
@@ -1232,11 +1291,10 @@
             background: #9ca3af;
         }
 
-        /* Responsive adjustments for Company DCF */
         @media (max-width: 1200px) {
             #company-dcf-view .content-grid {
                 grid-template-columns: 1fr;
-                gap: 1.5rem;
+                gap: 1rem;
             }
         }
 
@@ -1248,13 +1306,19 @@
             width: 100%;
             height: 100%;
             background: #ffffff;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             z-index: 99999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .logo-splash-overlay.show {
+            display: flex;
             opacity: 1;
             visibility: visible;
-            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         /* Ensure app-container is above splash when splash is hidden */
@@ -1471,9 +1535,825 @@
             }
         }
     </style>
+
+    <script>
+        // Landing Page Functions - Define in global scope first
+        let canvas, ctx, noise;
+        let width, height, width_half, height_half;
+        let animationId;
+        let startTime = Date.now();
+
+        // Constants
+        const ZERO = 0;
+        const THIRD = 1/3;
+        const TWO_THIRDS = 2/3;
+        const ONE = 1;
+        const TAU = Math.PI * 2;
+
+        // Composite operations
+        const compOper = {
+            sourceOver: 'source-over',
+            lighter: 'lighter'
+        };
+
+        // Utility functions
+        function map(value, start1, stop1, start2, stop2) {
+            return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1));
+        }
+
+        function hsl(h, s, l, a = 1) {
+            return `hsla(${h}, ${s}%, ${l}%, ${a})`;
+        }
+
+        function floor(x) {
+            return Math.floor(x);
+        }
+
+        function cos(x) {
+            return Math.cos(x);
+        }
+
+        function sin(x) {
+            return Math.sin(x);
+        }
+
+        // Canvas functions
+        function background(fillStyle) {
+            if (!ctx) return;
+            ctx.fillStyle = fillStyle;
+            ctx.fillRect(-width_half, -height_half, width, height);
+        }
+
+        function beginPath() {
+            if (!ctx) return;
+            ctx.beginPath();
+        }
+
+        function moveTo(x, y) {
+            if (!ctx) return;
+            ctx.moveTo(x, y);
+        }
+
+        function lineTo(x, y) {
+            if (!ctx) return;
+            ctx.lineTo(x, y);
+        }
+
+        function compositeOperation(mode) {
+            if (!ctx) return;
+            ctx.globalCompositeOperation = mode;
+        }
+
+        function stroke(style, width) {
+            if (!ctx) return;
+            ctx.strokeStyle = style;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+
+        function draw(elapsed) {
+            if (!ctx || !noise) return;
+
+            const xCount = 40;
+            const yCount = 60;
+            const invX = 1 / (xCount - 1);
+            const invY = 1 / (yCount - 1);
+            let time = elapsed * 0.001;
+            const timeStep = 0.01;
+
+            ctx.save();
+            ctx.translate(width_half, height_half);
+
+            const grad = ctx.createLinearGradient(-width, 0, width, height);
+            const t = time % ONE;
+            const tSide = floor(time % 2) === 0;
+            // Use very subtle grays for modern minimal look
+            const hueA = 0;
+            const hueB = 0;
+            const colorA = hsl(hueA, 0, 10, 0.3);
+            const colorB = hsl(hueB, 0, 15, 0.3);
+
+            grad.addColorStop(map(t, ZERO, ONE, THIRD, ZERO), colorA);
+            grad.addColorStop(map(t, ZERO, ONE, TWO_THIRDS, THIRD), colorB);
+            grad.addColorStop(map(t, ZERO, ONE, ONE, TWO_THIRDS), colorA);
+
+            // Clear canvas each frame for clean lines
+            ctx.clearRect(-width_half, -height_half, width, height);
+
+            ctx.globalAlpha = map(cos(time), -1, 1, 0.2, 0.4);
+            background(grad);
+            ctx.globalAlpha = 1;
+
+            beginPath();
+            for (let j = 0; j < yCount; j++) {
+                const tj = j * invY;
+                const c = cos(tj * TAU + time) * 0.1;
+                for (let i = 0; i < xCount; i++) {
+                    const ti = i * invX;
+                    const n = noise.noise3D(ti, time, c);
+                    const y = n * height_half;
+                    const x = ti * (width + 20) - width_half - 10;
+                    (i ? lineTo : moveTo)(x, y);
+                }
+                time += timeStep;
+            }
+
+            // Draw lines with more evident styling
+            compositeOperation(compOper.lighter);
+            ctx.filter = 'blur(6px)';
+            stroke(grad, 6);
+            ctx.filter = 'none';
+            
+            // Draw very subtle gray outlines for modern minimal look
+            ctx.globalAlpha = 0.15;
+            stroke(hsl(0, 0, 15, 0.3), 1.5);
+            compositeOperation(compOper.sourceOver);
+
+            ctx.restore();
+        }
+
+        function initNoiseAnimation() {
+            canvas = document.getElementById('noise-canvas');
+            if (!canvas) {
+                console.warn('Noise canvas not found');
+                return;
+            }
+
+            try {
+                ctx = canvas.getContext('2d');
+                if (typeof SimplexNoise === 'undefined') {
+                    console.warn('SimplexNoise not loaded, skipping noise animation');
+                    return;
+                }
+                noise = new SimplexNoise();
+
+                resizeCanvas();
+                animate();
+
+                // Handle window resize
+                window.addEventListener('resize', resizeCanvas);
+            } catch (error) {
+                console.error('Error initializing noise animation:', error);
+            }
+        }
+
+        function resizeCanvas() {
+            if (!canvas || !ctx) return;
+
+            const rect = canvas.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            width_half = width / 2;
+            height_half = height / 2;
+
+            // Set canvas size
+            canvas.width = width * window.devicePixelRatio;
+            canvas.height = height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        function animate() {
+            const elapsed = Date.now() - startTime;
+            draw(elapsed);
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function stopNoiseAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        function closeLandingPage(targetPage) {
+            localStorage.setItem('hasVisitedProjectNPV', 'true');
+            const landingPage = document.getElementById('landing-page');
+            const mainContent = document.getElementById('main-content');
+
+            // Stop noise animation
+            stopNoiseAnimation();
+
+            if (landingPage) {
+                // Add swipe-down animation class
+                landingPage.classList.add('swipe-down');
+
+                // After animation completes, remove active class and show app
+                setTimeout(() => {
+                    landingPage.classList.remove('active');
+                    landingPage.classList.remove('swipe-down');
+                    landingPage.style.display = 'none';
+
+                    if (mainContent) {
+                        mainContent.style.display = 'block';
+                    }
+                }, 800); // Match animation duration
+            }
+        }
+
+        // Initialize landing page - run immediately if DOM is ready, otherwise wait
+        function initLandingPage() {
+            // Rotating word animation
+            const words = ['NPV', 'Sensitivity', 'Scenario', 'Simulation'];
+            const rotatingWord = document.querySelector('.rotating-word');
+            let currentIndex = 0;
+
+            function rotateWord() {
+                if (!rotatingWord) return;
+
+                // Reset animation and force restart
+                rotatingWord.style.animation = 'none';
+                rotatingWord.offsetHeight; // Trigger reflow
+                rotatingWord.style.animation = 'simpleFade 1.5s ease-in-out';
+
+                setTimeout(() => {
+                    currentIndex = (currentIndex + 1) % words.length;
+                    rotatingWord.textContent = words[currentIndex];
+                }, 750); // Change text at midpoint
+            }
+
+            if (rotatingWord) {
+                // Start the animation cycle immediately
+                rotateWord();
+                setInterval(rotateWord, 3000); // 3 second intervals
+            }
+
+            // Landing page - show only on first visit
+            const hasVisited = localStorage.getItem('hasVisitedProjectNPV');
+            const landingPage = document.getElementById('landing-page');
+            const mainContent = document.getElementById('main-content');
+
+            console.log('Landing page check:', {
+                hasVisited,
+                landingPageExists: !!landingPage,
+                shouldShow: !hasVisited && !!landingPage
+            });
+
+            if (!hasVisited && landingPage) {
+                console.log('✓ Showing landing page - first visit detected');
+                // Show landing page with !important inline styles to override any CSS
+                landingPage.style.cssText = 'display: flex !important; opacity: 1 !important; visibility: visible !important; z-index: 10000 !important;';
+                landingPage.classList.add('active');
+
+                // Hide the main content initially
+                if (mainContent) {
+                    mainContent.style.display = 'none';
+                }
+
+                // Start noise animation after a short delay to ensure canvas is ready
+                setTimeout(() => {
+                    if (typeof initNoiseAnimation === 'function') {
+                        initNoiseAnimation();
+                    }
+                }, 300);
+            } else {
+                console.log('✗ Skipping landing page', {
+                    reason: hasVisited ? 'Already visited' : 'Element not found',
+                    hasVisited: hasVisited,
+                    landingPageExists: !!landingPage
+                });
+                // Ensure landing page is hidden
+                if (landingPage) {
+                    landingPage.style.display = 'none';
+                    landingPage.classList.remove('active');
+                }
+                // Ensure main content is visible if landing page is skipped
+                if (mainContent) {
+                    mainContent.style.display = 'block';
+                }
+            }
+        }
+
+        // Run landing page init when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLandingPage);
+        } else {
+            // DOM already loaded, run immediately
+            initLandingPage();
+        }
+
+        // Seamless video loop with crossfade
+        function initSeamlessVideoLoop() {
+            const video1 = document.getElementById('landing-video-1');
+            const video2 = document.getElementById('landing-video-2');
+
+            if (!video1 || !video2) return;
+
+            let currentVideo = video1;
+            let nextVideo = video2;
+
+            // Sync both videos to start at the same time
+            video1.currentTime = 0;
+            video2.currentTime = 0;
+
+            video1.play();
+            video2.pause();
+
+            // Crossfade before the video ends to hide the loop point
+            video1.addEventListener('timeupdate', function() {
+                // Start crossfade 1 second before video ends
+                const fadeStartTime = video1.duration - 1;
+
+                if (video1.currentTime >= fadeStartTime && currentVideo === video1) {
+                    // Sync the next video to start from beginning
+                    video2.currentTime = 0;
+                    video2.play();
+
+                    // Crossfade
+                    video2.style.opacity = '1';
+                    video1.style.opacity = '0';
+
+                    // Swap references
+                    currentVideo = video2;
+                    nextVideo = video1;
+                }
+            });
+
+            video2.addEventListener('timeupdate', function() {
+                const fadeStartTime = video2.duration - 1;
+
+                if (video2.currentTime >= fadeStartTime && currentVideo === video2) {
+                    video1.currentTime = 0;
+                    video1.play();
+
+                    video1.style.opacity = '1';
+                    video2.style.opacity = '0';
+
+                    currentVideo = video1;
+                    nextVideo = video2;
+                }
+            });
+        }
+
+        // Initialize seamless video loop
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSeamlessVideoLoop);
+        } else {
+            initSeamlessVideoLoop();
+        }
+
+        // Make functions globally accessible
+        window.closeLandingPage = closeLandingPage;
+        window.initNoiseAnimation = initNoiseAnimation;
+        window.stopNoiseAnimation = stopNoiseAnimation;
+        window.resetLandingPage = function() {
+            localStorage.removeItem('hasVisitedProjectNPV');
+            location.reload();
+        };
+    </script>
+
+    <style>
+        /* Landing Page Styles - Full-Width Hero Concept */
+        .landing-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--color-bg-primary);
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+            overflow: visible;
+        }
+
+        .landing-page.active {
+            display: flex;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Swipe-down animation */
+        .landing-page.swipe-down {
+            animation: swipeDown 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+        }
+
+        @keyframes swipeDown {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+        }
+
+        body:has(.landing-page.active) {
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .landing-hero {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4rem 6rem;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        .noise-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.015;
+            pointer-events: none;
+        }
+
+        .landing-top {
+            position: relative;
+            z-index: 1;
+            animation: fadeInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .landing-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin-bottom: 0;
+        }
+
+        .logo-program {
+            font-size: 0.6em;
+            font-weight: 400;
+            vertical-align: baseline;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            margin-left: 0.5rem;
+        }
+
+        .landing-bottom {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 2s both;
+            z-index: 2;
+        }
+
+        .landing-media {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            background: #000;
+        }
+
+        .landing-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            filter: brightness(0.6);
+            pointer-events: none;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .landing-video-secondary {
+            z-index: 1;
+        }
+
+        .landing-media-caption {
+            display: none;
+        }
+
+        .landing-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15));
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .landing-title {
+            font-size: 5rem;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 1.5rem;
+            line-height: 0.95;
+            letter-spacing: -0.04em;
+            position: relative;
+        }
+
+        .landing-subtitle {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 3rem;
+            line-height: 1.6;
+            font-weight: 400;
+            letter-spacing: -0.01em;
+            max-width: 600px;
+        }
+
+        .rotating-word {
+            display: inline-block;
+            position: relative;
+            color: inherit;
+            font-weight: inherit;
+            min-width: 120px;
+            text-align: left;
+            margin-right: 0.15em;
+        }
+
+        .moving-text {
+            display: inline-block;
+            position: relative;
+            color: inherit;
+            font-weight: inherit;
+        }
+
+        @keyframes simpleFade {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .landing-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+
+        .landing-nav-button {
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            background: transparent;
+            color: #ffffff;
+            font-weight: 500;
+            font-size: 1.125rem;
+            letter-spacing: -0.01em;
+            text-transform: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: visible;
+            text-decoration: none;
+        }
+
+        .landing-nav-button::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #ffffff;
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .landing-nav-button:hover::after {
+            width: 100%;
+        }
+
+        .landing-nav-button:hover {
+            color: #ffffff;
+        }
+
+        .landing-nav-button:active {
+            opacity: 0.7;
+        }
+
+        .button-text {
+            display: inline-block;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .landing-nav-button:hover .button-text {
+            transform: translateX(4px);
+        }
+
+        .button-arrow {
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 24px;
+            height: 24px;
+            opacity: 0.9;
+            flex-shrink: 0;
+        }
+
+        .landing-nav-button:hover .button-arrow {
+            transform: translateX(8px) rotate(-45deg);
+            opacity: 1;
+        }
+
+        .button-author {
+            width: 40px;
+            height: 40px;
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            cursor: pointer;
+            z-index: 10002;
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+            pointer-events: auto;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .button-author:hover {
+            opacity: 1;
+        }
+
+        .author-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .author-avatar svg {
+            width: 22px;
+            height: 22px;
+            stroke: rgba(255, 255, 255, 0.9);
+            fill: none;
+            stroke-width: 1.2;
+        }
+
+        .button-author:hover .author-avatar {
+            border-color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .button-author:hover .author-avatar svg {
+            stroke: #ffffff;
+        }
+
+        .author-tooltip {
+            position: absolute;
+            bottom: calc(100% + 10px);
+            right: 0;
+            transform: translateY(4px);
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: var(--color-bg-primary);
+            padding: 0.5rem 0.875rem;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(15, 15, 15, 0.15);
+        }
+
+        .author-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 1rem;
+            transform: translateX(0);
+            border: 5px solid transparent;
+            border-top-color: rgba(15, 15, 15, 0.95);
+        }
+
+        .button-author:hover .author-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            .landing-hero {
+                padding: 2rem 2rem 3rem;
+            }
+            .landing-logo {
+                font-size: 1.25rem;
+            }
+            .landing-title {
+                font-size: 3rem;
+                margin-bottom: 1rem;
+            }
+            .landing-subtitle {
+                font-size: 0.9375rem;
+                margin-bottom: 2rem;
+            }
+            .landing-nav {
+                gap: 1rem;
+            }
+            .landing-nav-button {
+                font-size: 1rem;
+            }
+            .button-arrow {
+                width: 20px;
+                height: 20px;
+            }
+            .button-author {
+                width: 36px;
+                height: 36px;
+                bottom: 1.5rem;
+                right: 1.5rem;
+            }
+            .author-avatar svg {
+                width: 20px;
+                height: 20px;
+            }
+            .landing-media {
+                position: absolute;
+                inset: 0;
+            }
+        }
+    </style>
 </head>
 
 <body>
+    <!-- Landing Page -->
+    <div id="landing-page" class="landing-page">
+        <canvas id="noise-canvas" class="noise-canvas"></canvas>
+        <div class="landing-hero">
+            <div class="landing-media">
+                <video id="landing-video-1" class="landing-video" autoplay muted loop playsinline preload="auto">
+                    <source src="./assets/media/ba133d34-c5bb-4661-b39b-1362c60cec36.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <video id="landing-video-2" class="landing-video landing-video-secondary" autoplay muted loop playsinline preload="auto" style="opacity: 0;">
+                    <source src="./assets/media/ba133d34-c5bb-4661-b39b-1362c60cec36.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="landing-overlay"></div>
+            <div class="landing-top">
+                <div class="landing-logo">ARQAM<span class="logo-program">PROGRAM</span></div>
+            </div>
+            <div class="landing-bottom">
+                <h1 class="landing-title">
+                    <span class="rotating-word">NPV</span><br>
+                    <span class="moving-text">Analysis</span>
+                </h1>
+                <p class="landing-subtitle">
+                    Advanced financial modeling platform for comprehensive valuation analysis, sensitivity testing, scenario planning, and Monte Carlo simulation to support data-driven investment decisions.
+                </p>
+                <div class="landing-nav">
+                    <button class="landing-nav-button" onclick="if(window.closeLandingPage){window.closeLandingPage();}else{localStorage.setItem('hasVisitedProjectNPV','true');const main=document.getElementById('main-content');if(main){main.style.display='block';}const lp=document.getElementById('landing-page');if(lp){lp.style.display='none';}}">
+                        <span class="button-text">Enter Platform</span>
+                        <svg class="button-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"></path>
+                            <path d="M12 5l7 7-7 7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <a href="https://www.linkedin.com/in/artemisradin" target="_blank" rel="noopener noreferrer" class="button-author">
+            <div class="author-avatar">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+            </div>
+            <div class="author-tooltip">Artemis Radin</div>
+        </a>
+    </div>
+
     <!-- Skip to Content Link for Accessibility -->
     <a href="#main-content" class="skip-to-content">Skip to main content</a>
 
@@ -1821,15 +2701,15 @@
                                 </div>
                             </div>
                             <!-- Export Buttons -->
-                            <div id="ai-export-buttons" style="display: none; margin-top: 2rem; padding: 1.5rem 1.25rem; border-top: 1px solid #e5e5e5;">
-                                <div style="display: flex; gap: 1rem; flex-wrap: nowrap; justify-content: center;">
-                                    <button onclick="if(window.AI_NPV_DATA?.ticker) exportAIPDF(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 240px; padding: 0.5rem 1.5rem; font-size: 0.9375rem;">
+                            <div id="ai-export-buttons" style="display: none; margin-top: 1rem; padding: 1rem 1rem; border-top: 1px solid #e5e5e5;">
+                                <div style="display: flex; gap: 0.75rem; flex-wrap: nowrap; justify-content: center;">
+                                    <button onclick="if(window.AI_NPV_DATA?.ticker) exportAIPDF(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 180px; padding: 0.45rem 1.1rem; font-size: 0.85rem;">
                                         Export PDF
                                     </button>
-                                    <button onclick="if(window.AI_NPV_DATA?.ticker) exportAIExcel(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 240px; padding: 0.5rem 1.5rem; font-size: 0.9375rem;">
+                                    <button onclick="if(window.AI_NPV_DATA?.ticker) exportAIExcel(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 180px; padding: 0.45rem 1.1rem; font-size: 0.85rem;">
                                         Export Excel
                                     </button>
-                                    <button onclick="if(window.AI_NPV_DATA?.ticker) addToPortfolioFromAI(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 240px; padding: 0.5rem 1.5rem; font-size: 0.9375rem;">
+                                    <button onclick="if(window.AI_NPV_DATA?.ticker) addToPortfolioFromAI(window.AI_NPV_DATA.ticker, this)" class="ghost-button" style="flex: 0 0 180px; padding: 0.45rem 1.1rem; font-size: 0.85rem;">
                                         Add to My Portfolio
                                     </button>
                                 </div>
@@ -1843,218 +2723,377 @@
 
                 <!-- Company DCF Sub-tab Content -->
                 <div id="company-dcf-view" class="npv-sub-tab-content" style="display: none;">
-                <!-- Under Development Badge -->
-                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.5rem;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                    <span style="color: #92400e; font-weight: 600; font-size: 0.875rem;">Under Development</span>
-                    <span style="color: #78350f; font-size: 0.8125rem; margin-left: auto;">This feature is currently being developed and may have limited functionality.</span>
-                </div>
-                <div class="content-grid" style="grid-template-columns: minmax(500px, 1.1fr) minmax(400px, 0.9fr); gap: 1.5rem; align-items: start;">
-                    <!-- Left Column: Input Form -->
-                    <div class="panel" style="align-self: start;">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Company DCF Valuation</h2>
-                            <p class="panel-subtitle">AI-powered DCF with automatic financial statement extraction</p>
-                        </div>
-                        <div class="panel-content">
-                            <div class="cta-row" style="margin-bottom: 0.75rem;">
-                                <button class="calculate-button" id="company-dcf-header-btn" onclick="calculateDCF()" aria-label="Calculate Discounted Cash Flow valuation" style="padding: 0.7rem 1.1rem; font-size: 0.85rem; min-width: 160px; flex-shrink: 0;">
-                                    Run DCF
-                                </button>
+                    <div style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 0.65rem 0.85rem; margin-bottom: 1rem; border-radius: 8px; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: #111827;">Company DCF</span>
+                        <span style="font-size: 0.82rem; color: #6b7280;">AI-powered DCF with compact inputs</span>
+                        <span style="margin-left: auto; font-size: 0.78rem; color: #9ca3af;">Beta</span>
+                    </div>
+                    <div class="content-grid">
+                        <!-- Left Column: Input Form -->
+                        <div class="panel" style="align-self: start;">
+                            <div class="panel-header">
+                                <h2 class="panel-title">Setup</h2>
+                                <p class="panel-subtitle">Ticker, assumptions, and quick sensitivity.</p>
                             </div>
-                            <!-- Ticker Lookup Section -->
-                            <div class="input-section" style="margin-bottom: 1.25rem;">
-                                <h3 class="section-title" style="margin-bottom: 0.875rem; font-size: 0.9375rem;">Company Lookup</h3>
-                                <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.75rem; align-items: start;">
-                                    <div class="input-field" style="margin-bottom: 0;">
-                                        <label class="input-label">Stock Ticker</label>
-                                        <div class="input-control">
-                                            <input type="text" class="input" id="dcf-ticker" placeholder="AAPL" value="" style="text-transform: uppercase;">
+                            <div class="panel-content">
+                                <div class="cta-row" style="margin-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button class="calculate-button" id="company-dcf-header-btn" onclick="calculateDCF()" aria-label="Calculate Discounted Cash Flow valuation" style="min-width: 160px;">
+                                        Run DCF
+                                    </button>
+                                    <button class="calculate-button ghost-button" onclick="runInlineDCFSensitivity()" style="min-width: 150px;">Quick Sensitivity</button>
+                                </div>
+                                <!-- Ticker Lookup Section -->
+                                <div class="input-section">
+                                    <h3 class="section-title">Company Lookup</h3>
+                                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; align-items: start;">
+                                        <div class="input-field" style="margin-bottom: 0;">
+                                            <label class="input-label">Stock Ticker</label>
+                                            <div class="input-control">
+                                                <input type="text" class="input" id="dcf-ticker" placeholder="AAPL" value="" style="text-transform: uppercase;">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div style="display: flex; flex-direction: column; justify-content: flex-end; height: 100%;">
-                                        <button class="calculate-button" id="fetch-dcf-data-button" onclick="fetchDCFCompanyData()" style="padding: 0.875rem 1.5rem; white-space: nowrap; width: auto; min-width: 140px; font-size: 0.875rem; margin-top: 1.5rem;" aria-label="Fetch company financial data">
-                                            <span>Fetch Data</span>
+                                        <button class="calculate-button" id="fetch-dcf-data-button" onclick="fetchDCFCompanyData()" style="height: 44px; padding: 0.68rem 1rem; white-space: nowrap; width: 140px; margin-top: 1.3rem;" aria-label="Fetch company financial data">
+                                            Fetch Data
                                         </button>
                                     </div>
+                                    <div id="dcf-ticker-disambiguation" style="margin-top: 0.35rem;"></div>
                                 </div>
-                                <!-- Ticker Disambiguation Container -->
-                                <div id="dcf-ticker-disambiguation" style="margin-top: 0.5rem;"></div>
-                            </div>
 
-                            <!-- Company Information Panel -->
-                            <div id="dcf-company-info-panel" style="display: none; margin-bottom: 1.25rem; padding: 0.875rem 1rem; background: #ffffff; border: 1px solid #e5e5e5; border-radius: 8px;">
-                                <h3 class="section-title" style="margin: 0 0 0.625rem 0; font-size: 0.8125rem; padding-bottom: 0.375rem;">Company Information</h3>
-                                <div id="dcf-company-info-container" style="font-size: 0.8125rem; line-height: 1.6; color: #4b5563;">
-                                    <!-- Company info will be populated here -->
-                                </div>
-                            </div>
-
-                            <div class="input-section" style="margin-bottom: 1.25rem;">
-                                <h3 class="section-title" style="margin-bottom: 0.875rem; font-size: 0.9375rem;">Financial Metrics</h3>
-                                <div class="field-grid" style="grid-template-columns: 1fr 1fr; gap: 0.875rem;">
-                                    <div class="input-field">
-                                        <label class="input-label">Forecast Period (Years)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-forecast-period" value="5" min="3" max="10">
-                                        </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Current Revenue ($B)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-revenue" placeholder="100" step="0.1">
-                                        </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Revenue Growth Rate (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-revenue-growth" placeholder="8" step="0.1">
-                                        </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">FCF Margin (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-fcf-margin" placeholder="20" step="0.1">
-                                        </div>
-                                    </div>
-                                    <div class="input-field" style="grid-column: 1 / -1;">
-                                        <label class="input-label">Terminal Growth Rate (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-terminal-growth" placeholder="2.5" step="0.1">
-                                        </div>
+                                <!-- Company Information Panel -->
+                                <div id="dcf-company-info-panel" style="display: none; margin-bottom: 1rem;">
+                                    <h3 class="section-title" style="margin: 0 0 0.35rem 0;">Company Information</h3>
+                                    <div id="dcf-company-info-container" style="font-size: 0.82rem; line-height: 1.5; color: #4b5563;">
+                                        <!-- Company info will be populated here -->
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="input-section" style="margin-bottom: 1.25rem;">
-                                <h3 class="section-title" style="margin-bottom: 0.875rem; font-size: 0.9375rem;">WACC Parameters</h3>
-                                <div class="field-grid" style="grid-template-columns: 1fr 1fr; gap: 0.875rem;">
-                                    <div class="input-field">
-                                        <label class="input-label">Risk-Free Rate (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-risk-free" placeholder="4.2" step="0.1">
+                                <div class="input-section">
+                                    <h3 class="section-title">Financial Metrics</h3>
+                                    <div class="field-grid">
+                                        <div class="input-field">
+                                            <label class="input-label">Forecast Period (Years)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-forecast-period" value="5" min="3" max="10">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Market Risk Premium (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-market-premium" placeholder="6.0" step="0.1">
+                                        <div class="input-field">
+                                            <label class="input-label">Current Revenue ($B)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-revenue" placeholder="100" step="0.1">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Beta</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-beta" placeholder="1.2" step="0.1">
+                                        <div class="input-field">
+                                            <label class="input-label">Revenue Growth Rate (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-revenue-growth" placeholder="8" step="0.1">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Cost of Debt (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-cost-debt" placeholder="4.0" step="0.1">
+                                        <div class="input-field">
+                                            <label class="input-label">FCF Margin (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-fcf-margin" placeholder="20" step="0.1">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Tax Rate (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-tax-rate" placeholder="21" step="0.1">
-                                        </div>
-                                    </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Debt/Equity Ratio</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-debt-equity" placeholder="0.1" step="0.01">
+                                        <div class="input-field" style="grid-column: 1 / -1;">
+                                            <label class="input-label">Terminal Growth Rate (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-terminal-growth" placeholder="2.5" step="0.1">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e5e5e5;">
-                                <button class="calculate-button" id="calculate-dcf-button" onclick="calculateDCF()" aria-label="Calculate Discounted Cash Flow valuation">
-                                    <span>Calculate DCF Valuation</span>
-                                </button>
-                            </div>
-
-                            <!-- Inline Sensitivity for Company DCF -->
-                            <div class="input-section" style="margin-top: 1.25rem;">
-                                <h3 class="section-title" style="margin-bottom: 0.75rem;">Sensitivity Analysis</h3>
-                                <div class="field-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; align-items: center;">
-                                    <div class="input-field">
-                                        <label class="input-label">Sensitivity Range (%)</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-sens-range" value="20" step="1" min="1" max="100">
+                                <div class="input-section">
+                                    <h3 class="section-title">WACC Parameters</h3>
+                                    <div class="field-grid">
+                                        <div class="input-field">
+                                            <label class="input-label">Risk-Free Rate (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-risk-free" placeholder="4.2" step="0.1">
+                                            </div>
+                                        </div>
+                                        <div class="input-field">
+                                            <label class="input-label">Market Risk Premium (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-market-premium" placeholder="6.0" step="0.1">
+                                            </div>
+                                        </div>
+                                        <div class="input-field">
+                                            <label class="input-label">Beta</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-beta" placeholder="1.2" step="0.1">
+                                            </div>
+                                        </div>
+                                        <div class="input-field">
+                                            <label class="input-label">Cost of Debt (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-cost-debt" placeholder="4.0" step="0.1">
+                                            </div>
+                                        </div>
+                                        <div class="input-field">
+                                            <label class="input-label">Tax Rate (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-tax-rate" placeholder="21" step="0.1">
+                                            </div>
+                                        </div>
+                                        <div class="input-field">
+                                            <label class="input-label">Debt/Equity Ratio</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-debt-equity" placeholder="0.1" step="0.01">
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="input-field">
-                                        <label class="input-label">Number of Steps</label>
-                                        <div class="input-control">
-                                            <input type="number" class="input" id="dcf-sens-steps" value="5" step="1" min="3" max="15">
-                                        </div>
-                                    </div>
-                                    <button class="calculate-button" id="dcf-run-sensitivity" onclick="runInlineDCFSensitivity()" style="width: 100%; min-width: 200px; margin-top: 0.35rem;">Run Sensitivity</button>
                                 </div>
-                                <div id="dcf-sensitivity-results" style="margin-top: 0.75rem;"></div>
+
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e5e5;">
+                                    <button class="calculate-button" id="calculate-dcf-button" onclick="calculateDCF()" aria-label="Calculate Discounted Cash Flow valuation">
+                                        <span>Calculate DCF Valuation</span>
+                                    </button>
+                                </div>
+
+                                <div class="input-section" style="margin-top: 1rem;">
+                                    <h3 class="section-title" style="margin-bottom: 0.5rem;">Quick Sensitivity</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; align-items: end;">
+                                        <div class="input-field">
+                                            <label class="input-label">Sensitivity Range (%)</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-sens-range" value="20" step="1" min="1" max="100">
+                                            </div>
+                                        </div>
+                                        <div class="input-field">
+                                            <label class="input-label">Number of Steps</label>
+                                            <div class="input-control">
+                                                <input type="number" class="input" id="dcf-sens-steps" value="5" step="1" min="3" max="15">
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; align-items: center;">
+                                            <button class="calculate-button" id="dcf-run-sensitivity" onclick="runInlineDCFSensitivity()" style="width: 100%; min-width: 150px; height: 44px;">Run</button>
+                                        </div>
+                                    </div>
+                                    <div id="dcf-sensitivity-results" style="margin-top: 0.5rem;"></div>
+                                </div>
+
+                                <div id="dcf-error-message" class="inline-error" style="display: none; margin-top: 0.75rem;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Data Sources & Results -->
+                        <div style="display: flex; flex-direction: column; gap: 0.85rem; align-self: start;">
+                            <!-- Data Source Panel -->
+                            <div class="panel" id="dcf-data-source-panel" style="display: none; background: #ffffff; border: 1px solid #e5e5e5;">
+                                <div class="panel-header" style="padding: 0.85rem 1rem; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div>
+                                        <h3 class="section-title" style="margin: 0; font-size: 0.8rem; padding-bottom: 0.2rem;">Data Sources</h3>
+                                        <p class="panel-subtitle" style="margin: 0.15rem 0 0 0; font-size: 0.75rem; color: #6b7280;">Captured for audit</p>
+                                    </div>
+                                    <button onclick="showDataSourceInfo()" class="info-icon-btn" title="View metric sources" aria-label="View which metrics came from which sources">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="16" x2="12" y2="12"/>
+                                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="panel-content" id="dcf-data-source-container" style="padding: 0.85rem; font-size: 0.85rem; line-height: 1.5; color: #4b5563; max-height: 260px; overflow-y: auto;">
+                                    <div class="empty-state" style="padding: 1.25rem 0;">
+                                        <div class="empty-state-icon">
+                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                <polyline points="14 2 14 8 20 8"/>
+                                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                                <polyline points="10 9 9 9 8 9"/>
+                                            </svg>
+                                        </div>
+                                        <p class="empty-state-title" style="font-size: 0.9rem;">Data Sources</p>
+                                        <p class="empty-state-text" style="font-size: 0.8rem; max-width: 260px;">Fetch company data to see source attribution.</p>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div id="dcf-error-message" class="inline-error" style="display: none; margin-top: 1rem;"></div>
+                            <!-- DCF Results Panel -->
+                            <div class="panel" style="flex: 1; min-height: 320px;">
+                                <div class="panel-header">
+                                    <h2 class="panel-title">DCF Results</h2>
+                                    <p class="panel-subtitle">Valuation outputs</p>
+                                </div>
+                                <div class="panel-content" id="dcf-results-container" style="min-height: 260px;">
+                                    <div class="empty-state">
+                                        <div class="empty-state-icon">
+                                            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M3 21h18"/>
+                                                <path d="M5 21V7l8-4v18"/>
+                                                <path d="M19 21V11l-6-4"/>
+                                            </svg>
+                                        </div>
+                                        <p class="empty-state-title">DCF Valuation Ready</p>
+                                        <p class="empty-state-text">Fetch data, set assumptions, and run DCF to see results.</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Right Column: Data Sources & Results -->
-                    <div style="display: flex; flex-direction: column; gap: 1.25rem; align-self: start;">
-                        <!-- Data Source Panel -->
-                        <div class="panel" id="dcf-data-source-panel" style="display: none; background: #ffffff; border: 1px solid #e5e5e5;">
-                            <div class="panel-header" style="padding: 0.875rem 1rem; border-bottom: 1px solid #e5e5e5;">
-                                <h3 class="section-title" style="margin: 0; font-size: 0.8125rem; padding-bottom: 0.25rem;">Data Sources</h3>
-                                <p class="panel-subtitle" style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: #6b7280;">Where each metric comes from</p>
-                            </div>
-                                <div class="panel-content" id="dcf-data-source-container" style="padding: var(--spacing-lg); font-size: var(--font-size-sm); line-height: 1.6; color: var(--color-text-tertiary); max-height: 280px; overflow-y: auto;">
-                                <!-- Data sources will be populated here -->
-                                <div class="empty-state" style="padding: var(--spacing-2xl) 0;">
-                                    <div class="empty-state-icon">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                            <polyline points="14 2 14 8 20 8"/>
-                                            <line x1="16" y1="13" x2="8" y2="13"/>
-                                            <line x1="16" y1="17" x2="8" y2="17"/>
-                                            <polyline points="10 9 9 9 8 9"/>
-                                        </svg>
-                                    </div>
-                                    <p class="empty-state-title" style="font-size: var(--font-size-base);">Data Sources</p>
-                                    <p class="empty-state-text" style="font-size: var(--font-size-sm); max-width: 300px;">Fetch company data to see where each financial metric comes from</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- DCF Results Panel -->
-                        <div class="panel" style="flex: 1; min-height: 450px;">
-                            <div class="panel-header">
-                                <h2 class="panel-title">DCF Valuation Results</h2>
-                                <p class="panel-subtitle">Valuation metrics and analysis</p>
-                            </div>
-                            <div class="panel-content" id="dcf-results-container" style="min-height: 400px;">
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M3 21h18"/>
-                                            <path d="M5 21V7l8-4v18"/>
-                                            <path d="M19 21V11l-6-4"/>
-                                            <path d="M9 9v0"/>
-                                            <path d="M9 12v0"/>
-                                            <path d="M9 15v0"/>
-                                            <path d="M9 18v0"/>
-                                        </svg>
-                                    </div>
-                                    <p class="empty-state-title">DCF Valuation Ready</p>
-                                    <p class="empty-state-text">Enter a stock ticker, fetch company data, configure your assumptions, and click "Calculate DCF Valuation" to see detailed valuation results.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 </div>
                 <!-- End of Company DCF Sub-tab -->
+
+                <!-- Data Source Info Modal -->
+                <div class="data-source-info-modal" id="data-source-info-modal" onclick="if(event.target === this) closeDataSourceInfo();">
+                    <div class="data-source-info-content">
+                        <div class="data-source-info-header">
+                            <h3>Metric Sources</h3>
+                            <button class="data-source-info-close" onclick="closeDataSourceInfo()" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="data-source-info-body" id="data-source-info-body">
+                            <div class="data-source-section">
+                                <h4>
+                                    <span class="data-source-badge finnhub">Finnhub</span>
+                                </h4>
+                                <div class="data-source-metrics" id="finnhub-metrics">
+                                    <span class="metric-chip">No data fetched yet</span>
+                                </div>
+                            </div>
+
+                            <div class="data-source-section">
+                                <h4>
+                                    <span class="data-source-badge yfinance">YFinance</span>
+                                </h4>
+                                <div class="data-source-metrics" id="yfinance-metrics">
+                                    <span class="metric-chip">No data fetched yet</span>
+                                </div>
+                            </div>
+
+                            <div class="data-source-section">
+                                <h4>
+                                    <span class="data-source-badge chatgpt">ChatGPT</span>
+                                </h4>
+                                <div class="data-source-metrics" id="chatgpt-metrics">
+                                    <span class="metric-chip">No data fetched yet</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NPV Analysis Modal -->
+                <div id="npv-modal-overlay" class="npv-modal-overlay" onclick="if(event.target === this) closeNPVModal();">
+                    <div class="npv-modal-container">
+                        <div class="npv-modal-header">
+                            <div>
+                                <h3 class="npv-modal-title">NPV Analysis from DCF</h3>
+                                <p style="font-size: 0.8125rem; color: #6b7280; margin: 0.25rem 0 0 0;">
+                                    Calculate Net Present Value using DCF projections
+                                </p>
+                            </div>
+                            <button class="npv-modal-close" onclick="closeNPVModal()" aria-label="Close modal">&times;</button>
+                        </div>
+
+                        <div class="npv-modal-body">
+                            <div class="npv-modal-grid">
+                                <!-- Left Column: NPV Inputs -->
+                                <div class="panel" style="margin-bottom: 0;">
+                                    <div class="panel-header">
+                                        <h4 class="panel-title" style="font-size: 1rem;">NPV Inputs</h4>
+                                        <p id="dcf-npv-data-source-hint" class="panel-subtitle" style="font-size: 0.75rem;">
+                                            Pre-populated from DCF analysis
+                                        </p>
+                                    </div>
+                                    <div class="panel-content">
+                                        <!-- Project Parameters -->
+                                        <div class="input-section">
+                                            <h3 class="section-title">Project Parameters</h3>
+                                            <div class="field-grid">
+                                                <div class="input-field">
+                                                    <label class="input-label required" for="dcf-npv-initial-cost">Initial Cost (C₀)</label>
+                                                    <div class="input-control">
+                                                        <input type="number" class="input" id="dcf-npv-initial-cost"
+                                                               placeholder="e.g., -500" step="0.01">
+                                                    </div>
+                                                    <p class="hint">Enterprise value as negative cash outflow</p>
+                                                </div>
+                                                <div class="input-field">
+                                                    <label class="input-label required" for="dcf-npv-required-return">Required Return (%)</label>
+                                                    <div class="input-control">
+                                                        <input type="number" class="input" id="dcf-npv-required-return"
+                                                               placeholder="e.g., 10" step="0.1">
+                                                    </div>
+                                                    <p class="hint">WACC from DCF analysis</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Cash Flow Grid -->
+                                        <div class="input-section">
+                                            <div class="section-heading">
+                                                <h3 class="section-title" style="margin: 0;">Annual Cash Flows</h3>
+                                                <button class="ghost-button" id="dcf-npv-add-year-btn"
+                                                        onclick="addNPVCashFlowYear()">+ Add Year</button>
+                                            </div>
+                                            <div id="dcf-npv-cash-flow-tbody">
+                                                <div id="dcf-npv-cash-flow-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                                                    <!-- Cash flow cards will be populated here -->
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Calculate Button -->
+                                        <div class="cta-row">
+                                            <button class="calculate-button" id="dcf-npv-calculate-npv-button"
+                                                    onclick="calculateNPVFromModal()">
+                                                <span>Calculate NPV</span>
+                                            </button>
+                                        </div>
+
+                                        <!-- Error Message -->
+                                        <div id="dcf-npv-npv-error-message" class="inline-error" style="display: none;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: NPV Results -->
+                                <div class="panel" style="margin-bottom: 0;">
+                                    <div class="panel-header">
+                                        <h4 class="panel-title" style="font-size: 1rem;">NPV Results</h4>
+                                    </div>
+                                    <div class="panel-content" id="dcf-npv-npv-results-container" style="min-height: 300px;">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                    <line x1="3" y1="9" x2="21" y2="9"/>
+                                                    <line x1="9" y1="21" x2="9" y2="9"/>
+                                                    <path d="M7 15l2-2 2 2 4-4 2 2"/>
+                                                </svg>
+                                            </div>
+                                            <p class="empty-state-title">Ready to Calculate</p>
+                                            <p class="empty-state-text">Review the pre-populated values and click "Calculate NPV"</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Discount Table (Full Width) -->
+                            <div id="dcf-npv-npv-discount-table-section" class="table-container" style="display: none; margin-top: 1.5rem;">
+                                <h3 style="font-size: 1rem; font-weight: 700; color: #0f0f0f; margin-bottom: 1rem;">
+                                    Discount Table
+                                </h3>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Year</th>
+                                            <th class="number">Cash Flow</th>
+                                            <th class="number">Discount Factor</th>
+                                            <th class="number">Present Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dcf-npv-npv-discount-tbody">
+                                        <!-- Discount table rows will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End of NPV Analysis Modal -->
 
             </div>
             <!-- End of NPV Calculator Tab -->
@@ -2241,12 +3280,9 @@
                         </div>
                     </div>
 
-                    <!-- Sentiment Results Panel -->
-                    <div class="panel" style="align-self: start;">
-                        <div class="panel-header">
-                            <h2 class="panel-title">Sentiment Analysis Results</h2>
-                        </div>
-                        <div class="panel-content" id="sentiment-results-container" style="min-height: 300px;">
+                    <!-- Sentiment Results Panel (Frameless) -->
+                    <div style="align-self: start; margin-top: 1.5rem;">
+                        <div class="panel-content" id="sentiment-results-container" style="min-height: 300px; border: none; background: transparent; padding: 0;">
                             <div class="empty-state">
                                 <div class="empty-state-icon">
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2284,7 +3320,6 @@
                 <div style="margin-top: -1rem; padding-top: 0;">
                     <h4>Links</h4>
                     <ul class="about-links">
-                        <li><a href="index.html">Stock Valuation</a></li>
                         <li><a href="#">Data Disclaimer</a></li>
                         <li><a href="#">Help</a></li>
                         <li><a href="#">Feedback</a></li>
@@ -2297,7 +3332,7 @@
 
     <!-- Scripts -->
     <script defer src="js/npv-module.js?v=1"></script>
-    <script defer src="js/portfolio-module.js?v=3.11"></script>
+    <script defer src="js/portfolio-module.js?v=3.14"></script>
     <script defer src="js/ai-npv-module.js?v=4.1"></script>
     <script defer src="js/dcf-module.js?v=2.0"></script>
     <script>
@@ -2557,28 +3592,37 @@
           }
         }
         
+        // Check if this is a page refresh or initial load
+        const isPageRefresh = performance.getEntriesByType('navigation')[0]?.type === 'reload';
+
         // Run immediately if DOM already loaded
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', function() {
             const splashOverlay = document.getElementById('logo-splash-overlay');
-            if (splashOverlay) {
+            if (splashOverlay && isPageRefresh) {
+              // Show splash only on refresh
+              splashOverlay.classList.add('show');
               setTimeout(() => {
                 hideSplash();
                 showContent();
               }, 600);
             } else {
+              // Skip splash on initial load - already hidden by CSS
               showContent();
             }
           });
         } else {
           // DOM already loaded
           const splashOverlay = document.getElementById('logo-splash-overlay');
-          if (splashOverlay) {
+          if (splashOverlay && isPageRefresh) {
+            // Show splash only on refresh
+            splashOverlay.classList.add('show');
             setTimeout(() => {
               hideSplash();
               showContent();
             }, 600);
           } else {
+            // Skip splash on initial load - already hidden by CSS
             showContent();
           }
         }

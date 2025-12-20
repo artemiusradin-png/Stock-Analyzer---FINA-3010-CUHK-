@@ -16,6 +16,9 @@ const DCF_API_BASE = getDCFAPIBase();
 // Track last DCF result for inline sensitivity
 let lastDCFResult = null;
 
+// Store DCF data globally for portfolio integration
+window.DCF_DATA = null;
+
 /**
  * Fetch company financial data using AI (ChatGPT)
  * This extracts data from official financial statements
@@ -199,6 +202,55 @@ function displayDCFDataSources(sources) {
 
     if (!panel || !container) return;
 
+    // Categorize metrics by source based on their descriptions
+    const finnhubMetrics = [];
+    const yfinanceMetrics = [];
+    const chatgptMetrics = [];
+
+    // Map each metric to its source category based on the source description
+    const metricMapping = {
+        'revenue': { label: 'Revenue', category: null },
+        'revenue_growth': { label: 'Revenue Growth', category: null },
+        'fcf_margin': { label: 'FCF Margin', category: null },
+        'terminal_growth': { label: 'Terminal Growth Rate', category: null },
+        'risk_free': { label: 'Risk-Free Rate', category: null },
+        'market_premium': { label: 'Market Risk Premium', category: null },
+        'beta': { label: 'Beta', category: null },
+        'cost_debt': { label: 'Cost of Debt', category: null },
+        'tax_rate': { label: 'Tax Rate', category: null },
+        'debt_equity': { label: 'Debt/Equity Ratio', category: null }
+    };
+
+    // Categorize each metric based on source text
+    for (const [key, metric] of Object.entries(metricMapping)) {
+        const sourceText = sources[key] || '';
+        const lowerSource = sourceText.toLowerCase();
+
+        if (lowerSource.includes('yahoo finance') || lowerSource.includes('bloomberg') ||
+            lowerSource.includes('finnhub') || lowerSource.includes('data provider')) {
+            finnhubMetrics.push(metric.label);
+        } else if (lowerSource.includes('income statement') || lowerSource.includes('balance sheet') ||
+                   lowerSource.includes('cash flow statement') || lowerSource.includes('annual report') ||
+                   lowerSource.includes('fy20') || lowerSource.includes('calculated from')) {
+            yfinanceMetrics.push(metric.label);
+        } else if (lowerSource.includes('treasury') || lowerSource.includes('gdp') ||
+                   lowerSource.includes('equity risk premium') || lowerSource.includes('historical')) {
+            chatgptMetrics.push(metric.label);
+        } else {
+            // Default categorization if source is unclear
+            if (key === 'beta') finnhubMetrics.push(metric.label);
+            else if (['revenue', 'revenue_growth', 'fcf_margin', 'tax_rate', 'debt_equity'].includes(key)) yfinanceMetrics.push(metric.label);
+            else chatgptMetrics.push(metric.label);
+        }
+    }
+
+    // Store data sources for info modal
+    window.lastDCFDataSources = {
+        finnhub: finnhubMetrics,
+        yfinance: yfinanceMetrics,
+        chatgpt: chatgptMetrics
+    };
+
     const html = `
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             <div>
@@ -305,15 +357,23 @@ function showDCFCompanyChooser(matches, onSelect) {
  * Called when user clicks "Calculate DCF Valuation" button
  */
 async function calculateDCF() {
-    try {
-        // Show loading state
-        const calculateBtn = document.getElementById('calculate-dcf-button');
-        const errorMsg = document.getElementById('dcf-error-message');
+    // Get both possible button IDs
+    const calculateBtn = document.getElementById('calculate-dcf-button');
+    const headerBtn = document.getElementById('company-dcf-header-btn');
+    const errorMsg = document.getElementById('dcf-error-message');
 
-        if (calculateBtn) {
-            calculateBtn.disabled = true;
-            calculateBtn.innerHTML = '<span>Calculating...</span>';
+    // Helper function to set button state
+    const setButtonState = (btn, disabled, text) => {
+        if (btn) {
+            btn.disabled = disabled;
+            btn.innerHTML = text;
         }
+    };
+
+    try {
+        // Show loading state on both buttons
+        setButtonState(calculateBtn, true, '<span>Calculating...</span>');
+        setButtonState(headerBtn, true, '<span>Calculating...</span>');
 
         if (errorMsg) {
             errorMsg.style.display = 'none';
@@ -336,11 +396,17 @@ async function calculateDCF() {
         // Validate inputs
         if (!ticker) {
             showDCFError('Please enter a ticker symbol');
+            // Reset buttons before returning
+            setButtonState(calculateBtn, false, '<span>Calculate DCF Valuation</span>');
+            setButtonState(headerBtn, false, '<span>Calculate DCF Valuation</span>');
             return;
         }
 
         if (revenue <= 0) {
             showDCFError('Please enter a valid revenue value');
+            // Reset buttons before returning
+            setButtonState(calculateBtn, false, '<span>Calculate DCF Valuation</span>');
+            setButtonState(headerBtn, false, '<span>Calculate DCF Valuation</span>');
             return;
         }
 
@@ -360,24 +426,32 @@ async function calculateDCF() {
             debt_equity: debtEquity
         };
 
+        // Build request body - include revenue_override if revenue > 0
+        const requestBody = {
+            ticker: ticker,
+            forecast_period: forecastPeriod,
+            revenue_growth_start: revenueGrowth / 100,
+            ebit_margin_start: fcfMargin / 100,
+            terminal_growth: terminalGrowth / 100,
+            risk_free_rate: riskFree / 100,
+            erp: marketPremium / 100,
+            cost_of_debt: costDebt / 100,
+            tax_rate_start: taxRate / 100,
+            discount_rate: null  // Let it calculate WACC automatically
+        };
+
+        // Only include revenue_override if user provided a valid revenue value
+        if (revenue > 0) {
+            requestBody.revenue_override = revenue * 1e9;
+        }
+
         // Call DCF API
         const response = await fetch(`${DCF_API_BASE}/api/valuations/calculate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                ticker: ticker,
-                forecast_period: forecastPeriod,
-                revenue_growth_start: revenueGrowth / 100,
-                ebit_margin_start: fcfMargin / 100,
-                terminal_growth: terminalGrowth / 100,
-                risk_free_rate: riskFree / 100,
-                erp: marketPremium / 100,
-                cost_of_debt: costDebt / 100,
-                tax_rate_start: taxRate / 100,
-                discount_rate: null  // Let it calculate WACC automatically
-            })
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
@@ -394,12 +468,9 @@ async function calculateDCF() {
         console.error('DCF calculation error:', error);
         showDCFError(error.message || 'An error occurred during DCF calculation');
     } finally {
-        // Reset button
-        const calculateBtn = document.getElementById('calculate-dcf-button');
-        if (calculateBtn) {
-            calculateBtn.disabled = false;
-            calculateBtn.innerHTML = '<span>Calculate DCF Valuation</span>';
-        }
+        // Reset both buttons
+        setButtonState(calculateBtn, false, '<span>Calculate DCF Valuation</span>');
+        setButtonState(headerBtn, false, '<span>Calculate DCF Valuation</span>');
     }
 }
 
@@ -412,6 +483,23 @@ function displayDCFResults(data) {
 
     // Cache result for inline sensitivity
     lastDCFResult = data;
+    
+    // Store DCF data globally for portfolio integration
+    window.DCF_DATA = {
+        ticker: data.ticker,
+        companyName: data.company_name || '',
+        currency: 'USD', // Default, could be enhanced
+        exchange: '',
+        dcfData: {
+            currentPrice: data.current_price,
+            impliedPrice: data.implied_price,
+            upsideDownside: data.upside_downside,
+            enterpriseValue: data.enterprise_value,
+            equityValue: data.equity_value,
+            wacc: data.wacc,
+            terminalValue: data.terminal_value
+        }
+    };
 
     const upsideColor = data.upside_downside >= 0 ? '#10b981' : '#ef4444';
     const upsideSign = data.upside_downside >= 0 ? '+' : '';
@@ -435,6 +523,16 @@ function displayDCFResults(data) {
                         <div style="font-size: 1.75rem; font-weight: 700; color: ${upsideColor};">${upsideSign}${data.upside_downside.toFixed(1)}%</div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <button class="npv-trigger-btn" onclick="openNPVModal()" style="flex: 1; min-width: 200px;">
+                    <span>📊 Run NPV Analysis</span>
+                </button>
+                <button onclick="if(window.DCF_DATA?.ticker) addToPortfolioFromDCF(window.DCF_DATA.ticker, this)" class="ghost-button" style="flex: 1; min-width: 200px; padding: 0.6rem 1.2rem; font-size: 0.9rem;">
+                    Add to My Portfolio
+                </button>
             </div>
 
             <!-- Key Metrics -->
@@ -618,7 +716,368 @@ function displayDCFSensitivityResults(scenarios) {
     `;
 }
 
+/* ============================================
+   NPV Modal Integration Functions
+   ============================================ */
+
+/**
+ * Open NPV Modal and pre-populate with DCF data
+ */
+function openNPVModal() {
+    if (!lastDCFResult) {
+        showDCFError('Please calculate DCF first before running NPV analysis');
+        return;
+    }
+
+    // Show modal
+    const modal = document.getElementById('npv-modal-overlay');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        // Pre-populate NPV inputs from DCF results
+        populateNPVFromDCF();
+    }
+}
+
+/**
+ * Close NPV Modal
+ */
+function closeNPVModal() {
+    const modal = document.getElementById('npv-modal-overlay');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+    }
+}
+
+/**
+ * Pre-populate NPV inputs from DCF calculation
+ */
+function populateNPVFromDCF() {
+    if (!lastDCFResult || !lastDCFResult.projections) {
+        console.warn('No DCF results available for NPV pre-population');
+        return;
+    }
+
+    // Initial Cost: Use negative Enterprise Value as proxy (convert from billions to actual value)
+    const initialCostBillions = -(lastDCFResult.enterprise_value || 0);
+    const initialCostEl = document.getElementById('dcf-npv-initial-cost');
+    if (initialCostEl) {
+        initialCostEl.value = initialCostBillions.toFixed(2);
+    }
+
+    // Required Return: Use WACC from DCF
+    const requiredReturn = lastDCFResult.wacc || 0;
+    const requiredReturnEl = document.getElementById('dcf-npv-required-return');
+    if (requiredReturnEl) {
+        requiredReturnEl.value = requiredReturn.toFixed(2);
+    }
+
+    // Cash Flows: Use projected FCF values (in billions)
+    const projections = lastDCFResult.projections || [];
+    const cashFlowGrid = document.getElementById('dcf-npv-cash-flow-grid');
+
+    if (cashFlowGrid) {
+        // Clear existing
+        cashFlowGrid.innerHTML = '';
+
+        // Add cash flow cards for each projection year
+        projections.forEach((proj, index) => {
+            const year = index + 1;
+            const fcf = proj.fcf || 0; // FCF in billions
+
+            const card = createNPVCashFlowCard(year, fcf);
+            cashFlowGrid.appendChild(card);
+        });
+    }
+
+    // Update hint text
+    const hintEl = document.getElementById('dcf-npv-data-source-hint');
+    if (hintEl) {
+        hintEl.textContent = `Pre-populated from DCF (WACC: ${requiredReturn.toFixed(2)}%, ${projections.length} year forecast)`;
+    }
+}
+
+/**
+ * Create cash flow card for NPV modal
+ */
+function createNPVCashFlowCard(year, value) {
+    const card = document.createElement('div');
+    card.className = 'cash-flow-card';
+    card.setAttribute('data-year', year);
+
+    const showRemoveBtn = year > 5;
+
+    card.innerHTML = `
+        <div class="cash-flow-card-header">
+            <div class="cash-flow-card-year">Year ${year}</div>
+            <button type="button" class="ghost-button cash-flow-remove-btn"
+                    style="padding: 0.25rem 0.55rem; font-size: 0.75rem; ${showRemoveBtn ? '' : 'display: none;'}"
+                    onclick="removeNPVCashFlowYear(${year})">Remove</button>
+        </div>
+        <div class="input-control cash-flow-input-wrapper">
+            <span class="cash-flow-currency">$</span>
+            <input type="number" class="input cash-flow-input-field"
+                   data-year="${year}" value="${value.toFixed(2)}"
+                   step="0.01" style="padding-left: 2rem;">
+        </div>
+    `;
+
+    return card;
+}
+
+/**
+ * Calculate NPV from modal (scoped version)
+ */
+async function calculateNPVFromModal() {
+    // Use the scoped NPV calculation function from npv-module.js
+    await calculateNPVScoped('dcf-npv');
+}
+
+/**
+ * Add cash flow year to NPV modal
+ */
+function addNPVCashFlowYear() {
+    const grid = document.getElementById('dcf-npv-cash-flow-grid');
+    if (!grid) return;
+
+    const existingCards = grid.querySelectorAll('.cash-flow-card');
+    const nextYear = existingCards.length + 1;
+
+    if (nextYear > 10) {
+        alert('Maximum 10 years allowed');
+        return;
+    }
+
+    const card = createNPVCashFlowCard(nextYear, 0);
+    grid.appendChild(card);
+}
+
+/**
+ * Remove cash flow year from NPV modal
+ */
+function removeNPVCashFlowYear(year) {
+    const grid = document.getElementById('dcf-npv-cash-flow-grid');
+    if (!grid) return;
+
+    const cards = Array.from(grid.querySelectorAll('.cash-flow-card'));
+
+    if (cards.length <= 5) {
+        alert('Minimum 5 years required');
+        return;
+    }
+
+    // Find and remove the card for this year
+    const cardToRemove = cards.find(card => parseInt(card.getAttribute('data-year')) === year);
+    if (cardToRemove) {
+        cardToRemove.remove();
+
+        // Renumber remaining cards
+        const remainingCards = Array.from(grid.querySelectorAll('.cash-flow-card'));
+        remainingCards.forEach((card, index) => {
+            const newYear = index + 1;
+            card.setAttribute('data-year', newYear);
+
+            const yearLabel = card.querySelector('.cash-flow-card-year');
+            if (yearLabel) yearLabel.textContent = `Year ${newYear}`;
+
+            const input = card.querySelector('.cash-flow-input-field');
+            if (input) input.setAttribute('data-year', newYear);
+
+            const removeBtn = card.querySelector('.cash-flow-remove-btn');
+            if (removeBtn) {
+                removeBtn.setAttribute('onclick', `removeNPVCashFlowYear(${newYear})`);
+                removeBtn.style.display = newYear > 5 ? '' : 'none';
+            }
+        });
+    }
+}
+
+// Make functions globally available
+// Data Source Info Modal Functions
+function showDataSourceInfo() {
+    const modal = document.getElementById('data-source-info-modal');
+    if (modal) {
+        // Update modal content with actual fetched data
+        updateDataSourceMetrics();
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeDataSourceInfo() {
+    const modal = document.getElementById('data-source-info-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function updateDataSourceMetrics() {
+    // Get the last fetched DCF data sources if available
+    const dcfData = window.lastDCFDataSources || {};
+
+    // Update Finnhub metrics
+    const finnhubContainer = document.getElementById('finnhub-metrics');
+    if (finnhubContainer) {
+        const finnhubMetrics = dcfData.finnhub || [];
+        if (finnhubMetrics.length > 0) {
+            finnhubContainer.innerHTML = finnhubMetrics.map(metric =>
+                `<span class="metric-chip">${metric}</span>`
+            ).join('');
+        } else {
+            finnhubContainer.innerHTML = '<span class="metric-chip">No data fetched</span>';
+        }
+    }
+
+    // Update YFinance metrics
+    const yfinanceContainer = document.getElementById('yfinance-metrics');
+    if (yfinanceContainer) {
+        const yfinanceMetrics = dcfData.yfinance || [];
+        if (yfinanceMetrics.length > 0) {
+            yfinanceContainer.innerHTML = yfinanceMetrics.map(metric =>
+                `<span class="metric-chip">${metric}</span>`
+            ).join('');
+        } else {
+            yfinanceContainer.innerHTML = '<span class="metric-chip">No data fetched</span>';
+        }
+    }
+
+    // Update ChatGPT metrics
+    const chatgptContainer = document.getElementById('chatgpt-metrics');
+    if (chatgptContainer) {
+        const chatgptMetrics = dcfData.chatgpt || [];
+        if (chatgptMetrics.length > 0) {
+            chatgptContainer.innerHTML = chatgptMetrics.map(metric =>
+                `<span class="metric-chip">${metric}</span>`
+            ).join('');
+        } else {
+            chatgptContainer.innerHTML = '<span class="metric-chip">No data fetched</span>';
+        }
+    }
+}
+
+/**
+ * Helper function to set button loading state
+ */
+function setDCFButtonLoading(button, loadingText = 'Loading...') {
+    if (!button) return null;
+    
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    
+    // Check if it's a ghost button (white background) or regular button (black background)
+    const isGhostButton = button.classList.contains('ghost-button');
+    const spinnerColor = isGhostButton 
+        ? 'border: 2px solid rgba(15, 15, 15, 0.3); border-top: 2px solid #0f0f0f;'
+        : 'border: 2px solid rgba(255, 255, 255, 0.3); border-top: 2px solid #ffffff;';
+    
+    button.innerHTML = `
+        <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <span class="button-loading-spinner" style="width: 14px; height: 14px; ${spinnerColor} border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;"></span>
+            ${loadingText}
+        </span>
+    `;
+    return originalHTML;
+}
+
+/**
+ * Helper function to restore button state
+ */
+function restoreDCFButton(button, originalHTML) {
+    if (!button) return;
+    button.disabled = false;
+    button.innerHTML = originalHTML;
+}
+
+/**
+ * Add DCF valuation result to portfolio
+ */
+function addToPortfolioFromDCF(ticker, buttonElement = null) {
+    if (!ticker) {
+        showDCFError('No ticker available to add');
+        return;
+    }
+
+    // Find button if not provided
+    if (!buttonElement) {
+        const buttons = document.querySelectorAll('button[onclick*="addToPortfolioFromDCF"]');
+        buttonElement = Array.from(buttons).find(btn => btn.textContent.includes('Add to My Portfolio'));
+    }
+
+    const originalHTML = setDCFButtonLoading(buttonElement, 'Adding...');
+
+    const tickerUpper = ticker.toUpperCase();
+
+    // Check if portfolio module functions are available
+    if (typeof addPortfolioAsset === 'undefined') {
+        showDCFError('Portfolio module not loaded. Please refresh the page.');
+        restoreDCFButton(buttonElement, originalHTML);
+        return;
+    }
+
+    // Check if ticker already exists in portfolio
+    if (window.portfolioAssets && window.portfolioAssets.find(a => a.ticker === tickerUpper)) {
+        showDCFError(`${tickerUpper} is already in your portfolio`);
+        restoreDCFButton(buttonElement, originalHTML);
+        return;
+    }
+
+    try {
+        // Prepare rich asset data from DCF_DATA
+        const assetData = {
+            ticker: tickerUpper,
+            companyName: window.DCF_DATA?.companyName || '',
+            currency: window.DCF_DATA?.currency || 'USD',
+            exchange: window.DCF_DATA?.exchange || '',
+            npvData: null, // DCF doesn't have NPV data, but we can store DCF data separately if needed
+            dcfData: window.DCF_DATA?.dcfData || null,
+            source: 'dcf'
+        };
+
+        // Call addPortfolioAsset with rich data
+        addPortfolioAsset(assetData);
+
+        const companyDisplay = assetData.companyName ? `${assetData.companyName} (${tickerUpper})` : tickerUpper;
+        showDCFSuccess(`Added ${companyDisplay} to Portfolio Optimization`);
+
+        restoreDCFButton(buttonElement, originalHTML);
+    } catch (error) {
+        console.error('Add to portfolio error:', error);
+        showDCFError(`Failed to add ${tickerUpper} to portfolio: ${error.message}`);
+        restoreDCFButton(buttonElement, originalHTML);
+    }
+}
+
+/**
+ * Show DCF success message
+ */
+function showDCFSuccess(message) {
+    const errorMsg = document.getElementById('dcf-error-message');
+    if (errorMsg) {
+        errorMsg.textContent = message;
+        errorMsg.style.display = 'block';
+        errorMsg.style.color = '#059669';
+        errorMsg.style.background = '#d1fae5';
+        errorMsg.style.borderColor = '#10b981';
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            errorMsg.style.display = 'none';
+        }, 5000);
+    }
+}
+
 // Make functions globally available
 window.fetchDCFCompanyData = fetchDCFCompanyData;
 window.calculateDCF = calculateDCF;
 window.runInlineDCFSensitivity = runInlineDCFSensitivity;
+window.openNPVModal = openNPVModal;
+window.closeNPVModal = closeNPVModal;
+window.calculateNPVFromModal = calculateNPVFromModal;
+window.addNPVCashFlowYear = addNPVCashFlowYear;
+window.removeNPVCashFlowYear = removeNPVCashFlowYear;
+window.showDataSourceInfo = showDataSourceInfo;
+window.closeDataSourceInfo = closeDataSourceInfo;
+window.addToPortfolioFromDCF = addToPortfolioFromDCF;

@@ -208,6 +208,9 @@ async function fetchOCF() {
                 terminalPricePerShare: data.terminal_price_per_share || {},
                 scenarioExplanations: data.scenario_explanation || {},
                 years: data.years || [],
+                // Store for recalculation when investment changes
+                storedDividendsPerShare: data.dividends_per_share || {},
+                storedTerminalPricePerShare: data.terminal_price_per_share || {},
                 // Store company info for consistent display and exports
                 companyName: companyData.name || '',  // Full company name (if available)
                 exchange: companyData.exchange || exchange || '',
@@ -325,7 +328,8 @@ function showCFLoading(message = 'Fetching cash flow scenarios...') {
 
 /**
  * Display scenario-based cash flow table (Low/Base/High)
- * Now shows PER-SHARE dividends and terminal prices
+ * Shows TOTAL cash flows based on investment amount (multiplied by shares)
+ * Includes terminal value in final year
  */
 function displayScenariosTable(years, dividendsPerShare, terminalPricePerShare, currentPricePerShare) {
     console.log('=== displayScenariosTable CALLED ===');
@@ -352,45 +356,225 @@ function displayScenariosTable(years, dividendsPerShare, terminalPricePerShare, 
     const currency = window.AI_NPV_DATA?.currency || 'USD';
     const currencySymbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
 
-    // Create scenario table with year rows and Low/Base/High columns
+    // Get initial investment to calculate shares - ALWAYS check current value from DOM
+    // Try multiple selectors in case ID changed
+    let initialCostInput = document.getElementById('ai-initial-cost') || 
+                           document.querySelector('input[id*="initial"][id*="cost"]') ||
+                           document.querySelector('input[placeholder*="10000"]') ||
+                           document.querySelector('input[placeholder*="investment"]');
+    
+    let initialCostValue = '';
+    let initialCost = NaN;
+    let investmentAmount = 0;
+    let shares = 0;
+    
+    if (initialCostInput) {
+        initialCostValue = (initialCostInput.value || '').trim();
+        console.log('Found investment input, value:', initialCostValue, 'element:', initialCostInput.id || initialCostInput.className);
+        
+        if (initialCostValue) {
+            initialCost = parseFloat(initialCostValue);
+            console.log('Parsed investment:', initialCost);
+            
+            if (!isNaN(initialCost) && initialCost !== 0) {
+                investmentAmount = Math.abs(initialCost);
+                shares = currentPricePerShare > 0 && investmentAmount > 0 ? investmentAmount / currentPricePerShare : 0;
+                console.log('Calculated shares:', shares, 'from investment:', investmentAmount, 'and price:', currentPricePerShare);
+            }
+        }
+    } else {
+        console.warn('Investment input NOT FOUND - checking all inputs...');
+        const allInputs = document.querySelectorAll('input[type="number"]');
+        console.log('Found', allInputs.length, 'number inputs');
+        allInputs.forEach((inp, idx) => {
+            if (inp.id && inp.id.includes('initial') || inp.id.includes('cost') || inp.placeholder?.includes('10000')) {
+                console.log(`Input ${idx}: id=${inp.id}, value=${inp.value}, placeholder=${inp.placeholder}`);
+            }
+        });
+    }
+    
+    console.log('Investment calculation result:', {
+        inputElement: initialCostInput ? 'found' : 'NOT FOUND',
+        inputValue: initialCostValue,
+        parsedCost: initialCost,
+        investmentAmount: investmentAmount,
+        currentPrice: currentPricePerShare,
+        shares: shares,
+        willShowTotals: investmentAmount > 0 && shares > 0,
+        conditionCheck: `investmentAmount (${investmentAmount}) > 0 && shares (${shares}) > 0 = ${investmentAmount > 0 && shares > 0}`
+    });
+
+    // Store per-share values for editing (we'll use these to calculate totals)
+    // Store them as data attributes so we can recalculate when investment changes
+    const storePerShareValues = (divPerShare, terminalPerShare) => {
+        // Store in window for recalculation
+        if (!window.AI_NPV_DATA) window.AI_NPV_DATA = {};
+        window.AI_NPV_DATA.storedDividendsPerShare = divPerShare;
+        window.AI_NPV_DATA.storedTerminalPricePerShare = terminalPerShare;
+    };
+    storePerShareValues(dividendsPerShare, terminalPricePerShare);
+
+    // Create scenario table showing TOTAL cash flows (multiplied by shares)
     let html = `
+        <div style="margin-bottom: 0.75rem; padding: 0.75rem; background: #f0f9ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.8125rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div style="font-weight: 600; color: #1e40af;">📊 Cash Flow Scenarios</div>
+                <button onclick="updateCashFlowsToTotals()" 
+                        style="padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; transition: all 0.2s;"
+                        onmouseover="this.style.background='#059669'; this.style.transform='scale(1.05)'"
+                        onmouseout="this.style.background='#10b981'; this.style.transform='scale(1)'">
+                    💰 Convert to Total Cash Flows
+                </button>
+            </div>
+            <div style="color: #1e40af;">
+                ${investmentAmount > 0 && shares > 0 
+                    ? `Showing total cash flows for investment of <strong>${currencySymbol}${investmentAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong> (${shares.toFixed(2)} shares at ${currencySymbol}${currentPricePerShare.toFixed(2)}/share)`
+                    : `Enter Initial Investment above, then click "Convert to Total Cash Flows" to see totals for your investment amount.`}
+            </div>
+        </div>
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
                 <thead>
                     <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
                         <th style="padding: 0.75rem; text-align: left; font-weight: 700; color: #111827; border-right: 1px solid #e5e7eb;">Year</th>
-                        <th style="padding: 0.75rem; text-align: right; font-weight: 700; color: #dc2626;">Low (${currencySymbol}/share)</th>
-                        <th style="padding: 0.75rem; text-align: right; font-weight: 700; color: #111827; background: #f3f4f6;">Base (${currencySymbol}/share)</th>
-                        <th style="padding: 0.75rem; text-align: right; font-weight: 700; color: #059669;">High (${currencySymbol}/share)</th>
+                        <th style="padding: 0.75rem; text-align: right; font-weight: 700; color: #dc2626;">Low Scenario</th>
+                        <th style="padding: 0.75rem; text-align: right; font-weight: 700; color: #111827; background: #f3f4f6;">Base Scenario</th>
+                        <th style="padding: 0.75rem; text-align: right; font-weight: 700; color: #059669;">High Scenario</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
-    years.forEach((year, idx) => {
-        const lowVal = lowDivs[idx] || 0;
-        const baseVal = baseDivs[idx] || 0;
-        const highVal = highDivs[idx] || 0;
-
-        console.log(`Year ${year} (idx ${idx}): Low=${lowVal}, Base=${baseVal}, High=${highVal}`);
-
+    // Year 0 - Initial Investment
+    if (investmentAmount > 0) {
         html += `
-            <tr style="border-bottom: 1px solid #e5e7eb;">
-                <td style="padding: 0.625rem 0.75rem; font-weight: 600; color: #111827; border-right: 1px solid #e5e7eb;">${year}</td>
-                <td style="padding: 0.625rem 0.75rem; text-align: right;">
-                    <input type="number" class="input ai-div-low" data-year-idx="${idx}" value="${lowVal.toFixed(2)}" step="0.01"
-                           style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #fecaca; background: #fef2f2;">
+            <tr style="border-bottom: 2px solid #e5e7eb; background: #fee2e2;">
+                <td style="padding: 0.625rem 0.75rem; font-weight: 700; color: #991b1b; border-right: 1px solid #e5e7eb;">Year 0 (Initial Investment)</td>
+                <td style="padding: 0.625rem 0.75rem; text-align: right; color: #991b1b; font-weight: 700;">
+                    ${currencySymbol}${(-investmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </td>
-                <td style="padding: 0.625rem 0.75rem; text-align: right; background: #fafafa;">
-                    <input type="number" class="input ai-div-base" data-year-idx="${idx}" value="${baseVal.toFixed(2)}" step="0.01"
-                           style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #d1d5db; font-weight: 600;">
+                <td style="padding: 0.625rem 0.75rem; text-align: right; color: #991b1b; font-weight: 700; background: #f3f4f6;">
+                    ${currencySymbol}${(-investmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </td>
-                <td style="padding: 0.625rem 0.75rem; text-align: right;">
-                    <input type="number" class="input ai-div-high" data-year-idx="${idx}" value="${highVal.toFixed(2)}" step="0.01"
-                           style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #a7f3d0; background: #ecfdf5;">
+                <td style="padding: 0.625rem 0.75rem; text-align: right; color: #991b1b; font-weight: 700;">
+                    ${currencySymbol}${(-investmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </td>
             </tr>
         `;
+    }
+
+    // Regular years (dividends only) and final year (dividend + terminal)
+    years.forEach((year, idx) => {
+        const isLastYear = (idx === years.length - 1);
+        const lowDivPerShare = lowDivs[idx] || 0;
+        const baseDivPerShare = baseDivs[idx] || 0;
+        const highDivPerShare = highDivs[idx] || 0;
+        
+        // Calculate totals if shares are available, otherwise show per-share
+        let lowVal, baseVal, highVal;
+        let displayLabel = '';
+        
+        if (investmentAmount > 0 && shares > 0) {
+            // Always show dividend only (terminal is separate row)
+            lowVal = lowDivPerShare * shares;
+            baseVal = baseDivPerShare * shares;
+            highVal = highDivPerShare * shares;
+            displayLabel = `Year ${year} (Dividend)`;
+        } else {
+            // Show per-share values if no investment entered
+            lowVal = lowDivPerShare;
+            baseVal = baseDivPerShare;
+            highVal = highDivPerShare;
+            displayLabel = `Year ${year} (Dividend)`;
+        }
+
+        // Store per-share values as data attributes for recalculation
+        const rowStyle = isLastYear ? 'border-top: 2px solid #e5e7eb; background: #fef3c7;' : 'border-bottom: 1px solid #e5e7eb;';
+        const inputStyle = isLastYear ? 'font-weight: 700; background: #fff3cd;' : '';
+
+        html += `
+            <tr style="${rowStyle}" data-year-idx="${idx}" data-is-last="${isLastYear}">
+                <td style="padding: 0.625rem 0.75rem; font-weight: ${isLastYear ? '700' : '600'}; color: ${isLastYear ? '#92400e' : '#111827'}; border-right: 1px solid #e5e7eb;">
+                    ${displayLabel}
+                </td>
+                <td style="padding: 0.625rem 0.75rem; text-align: right;">
+                    <input type="number" 
+                           class="input ai-div-low" 
+                           data-year-idx="${idx}" 
+                           data-per-share="${lowDivPerShare.toFixed(4)}"
+                           value="${investmentAmount > 0 && shares > 0 ? lowVal.toFixed(2) : lowDivPerShare.toFixed(2)}" 
+                           step="0.01"
+                           style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #fecaca; background: #fef2f2; ${inputStyle}">
+                    ${investmentAmount > 0 && shares > 0 ? '' : `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">${currencySymbol}/share</div>`}
+                </td>
+                <td style="padding: 0.625rem 0.75rem; text-align: right; background: ${isLastYear ? '#fff3cd' : '#fafafa'};">
+                    <input type="number" 
+                           class="input ai-div-base" 
+                           data-year-idx="${idx}" 
+                           data-per-share="${baseDivPerShare.toFixed(4)}"
+                           value="${investmentAmount > 0 && shares > 0 ? baseVal.toFixed(2) : baseDivPerShare.toFixed(2)}" 
+                           step="0.01"
+                           style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #d1d5db; font-weight: ${isLastYear ? '700' : '600'}; ${inputStyle}">
+                    ${investmentAmount > 0 && shares > 0 ? '' : `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">${currencySymbol}/share</div>`}
+                </td>
+                <td style="padding: 0.625rem 0.75rem; text-align: right;">
+                    <input type="number" 
+                           class="input ai-div-high" 
+                           data-year-idx="${idx}" 
+                           data-per-share="${highDivPerShare.toFixed(4)}"
+                           value="${investmentAmount > 0 && shares > 0 ? highVal.toFixed(2) : highDivPerShare.toFixed(2)}" 
+                           step="0.01"
+                           style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #a7f3d0; background: #ecfdf5; ${inputStyle}">
+                    ${investmentAmount > 0 && shares > 0 ? '' : `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">${currencySymbol}/share</div>`}
+                </td>
+            </tr>
+        `;
+        
+        // Add terminal value row after last dividend year
+        if (isLastYear) {
+            const terminalLow = terminalPricePerShare.low || 0;
+            const terminalBase = terminalPricePerShare.base || 0;
+            const terminalHigh = terminalPricePerShare.high || 0;
+            
+            const terminalLowTotal = investmentAmount > 0 && shares > 0 ? terminalLow * shares : terminalLow;
+            const terminalBaseTotal = investmentAmount > 0 && shares > 0 ? terminalBase * shares : terminalBase;
+            const terminalHighTotal = investmentAmount > 0 && shares > 0 ? terminalHigh * shares : terminalHigh;
+            
+            html += `
+                <tr style="border-top: 2px solid #f59e0b; background: #fef3c7;">
+                    <td style="padding: 0.625rem 0.75rem; font-weight: 700; color: #92400e; border-right: 1px solid #e5e7eb;">
+                        Terminal Sale Proceeds (Year ${year})
+                    </td>
+                    <td style="padding: 0.625rem 0.75rem; text-align: right;">
+                        <input type="number" 
+                               class="input ai-terminal-low" 
+                               data-per-share="${terminalLow.toFixed(4)}"
+                               value="${terminalLowTotal.toFixed(2)}" 
+                               step="0.01"
+                               style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #fecaca; background: #fef2f2; font-weight: 700;">
+                        ${investmentAmount > 0 && shares > 0 ? '' : `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">${currencySymbol}/share</div>`}
+                    </td>
+                    <td style="padding: 0.625rem 0.75rem; text-align: right; background: #fff3cd;">
+                        <input type="number" 
+                               class="input ai-terminal-base" 
+                               data-per-share="${terminalBase.toFixed(4)}"
+                               value="${terminalBaseTotal.toFixed(2)}" 
+                               step="0.01"
+                               style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #d1d5db; font-weight: 700; background: #fff3cd;">
+                        ${investmentAmount > 0 && shares > 0 ? '' : `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">${currencySymbol}/share</div>`}
+                    </td>
+                    <td style="padding: 0.625rem 0.75rem; text-align: right;">
+                        <input type="number" 
+                               class="input ai-terminal-high" 
+                               data-per-share="${terminalHigh.toFixed(4)}"
+                               value="${terminalHighTotal.toFixed(2)}" 
+                               step="0.01"
+                               style="padding: 0.375rem 0.5rem; font-size: 0.8125rem; text-align: right; width: 100%; border: 1px solid #a7f3d0; background: #ecfdf5; font-weight: 700;">
+                        ${investmentAmount > 0 && shares > 0 ? '' : `<div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.25rem;">${currencySymbol}/share</div>`}
+                    </td>
+                </tr>
+            `;
+        }
     });
 
     html += `
@@ -398,22 +582,332 @@ function displayScenariosTable(years, dividendsPerShare, terminalPricePerShare, 
             </table>
         </div>
         <div style="margin-top: 0.75rem; font-size: 0.8125rem; color: #6b7280;">
-            <div style="margin-bottom: 0.5rem;"><strong>Dividends shown per share (above)</strong> | Current price: <strong>${currencySymbol}${currentPricePerShare.toFixed(2)}/share</strong></div>
-            <div style="margin-bottom: 0.5rem; padding: 0.5rem 0.625rem; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 3px; font-size: 0.8125rem;">
-                <div style="font-weight: 600; color: #92400e; margin-bottom: 0.25rem;">📊 Terminal Sale Prices (Year ${years[years.length - 1]}): <span style="color: #dc2626; font-weight: 600;">Low ${currencySymbol}${terminalPricePerShare.low.toFixed(2)}</span> | <span style="color: #111827; font-weight: 600;">Base ${currencySymbol}${terminalPricePerShare.base.toFixed(2)}</span> | <span style="color: #059669; font-weight: 600;">High ${currencySymbol}${terminalPricePerShare.high.toFixed(2)}</span></div>
-                <div style="color: #92400e; font-size: 0.8125rem;">
-                    ⚠️ Year ${years[years.length - 1]} cash flow includes <strong>dividend + sale proceeds</strong> (selling all shares at terminal price)
+            <div style="margin-bottom: 0.5rem; padding: 0.5rem 0.625rem; background: #dbeafe; border-left: 3px solid #3b82f6; border-radius: 3px;">
+                <div style="font-weight: 600; color: #1e40af; margin-bottom: 0.25rem;">ℹ️ Cash Flow Calculation:</div>
+                <div style="color: #1e40af; font-size: 0.8125rem;">
+                    ${investmentAmount > 0 && shares > 0 
+                        ? `• Years 1-${years.length - 1}: <strong>Dividend × ${shares.toFixed(2)} shares</strong><br>
+                           • Year ${years[years.length - 1]}: <strong>(Dividend + Terminal Sale) × ${shares.toFixed(2)} shares</strong><br>
+                           • Investment: ${currencySymbol}${investmentAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} at ${currencySymbol}${currentPricePerShare.toFixed(2)}/share`
+                        : `• Enter Initial Investment above to see total cash flows<br>
+                           • Currently showing per-share values<br>
+                           • Final year includes dividend + terminal sale proceeds`}
                 </div>
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
-                <span>All values are editable. Base case is highlighted.</span>
-                <span style="font-weight: 600;">${years.length} years projected</span>
+            <div style="margin-top: 1rem; padding: 0.75rem; background: ${investmentAmount > 0 && shares > 0 ? '#d1fae5' : '#fef3c7'}; border-left: 3px solid ${investmentAmount > 0 && shares > 0 ? '#10b981' : '#f59e0b'}; border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                    <div>
+                        ${investmentAmount > 0 && shares > 0 
+                            ? `<span style="color: #065f46; font-weight: 600;">✅ Showing total cash flows for your investment</span>`
+                            : `<span style="color: #92400e; font-weight: 600;">⚠️ Enter Initial Investment above to see total cash flows</span>`}
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button onclick="if(window._updateAINPVTable){window._updateAINPVTable();}else{const input=document.getElementById('ai-initial-cost');if(input&&input.value){location.reload();}else{alert('Please enter Initial Investment amount first');}}" 
+                                style="padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; transition: background 0.2s;"
+                                onmouseover="this.style.background='#2563eb'"
+                                onmouseout="this.style.background='#3b82f6'">
+                            🔄 Update Table
+                        </button>
+                        <span style="font-weight: 600; color: #6b7280;">${years.length} years</span>
+                    </div>
+                </div>
             </div>
         </div>
     `;
 
     container.innerHTML = html;
     console.log('Table HTML rendered to container');
+    console.log(`Investment: ${investmentAmount}, Shares: ${shares}, Showing totals: ${investmentAmount > 0 && shares > 0}`);
+    
+    // Function to update table when investment changes
+    window._updateAINPVTable = function updateTableFromInvestment() {
+        console.log('updateTableFromInvestment called');
+        const input = document.getElementById('ai-initial-cost');
+        const inputValue = input ? input.value.trim() : '';
+        console.log('Current input value:', inputValue);
+        
+        if (window.AI_NPV_DATA && window.AI_NPV_DATA.storedDividendsPerShare) {
+            const storedYears = window.AI_NPV_DATA.years || years;
+            const storedCurrentPrice = window.AI_NPV_DATA.currentPricePerShare || currentPricePerShare;
+            console.log('Re-rendering table with stored data');
+            displayScenariosTable(
+                storedYears,
+                window.AI_NPV_DATA.storedDividendsPerShare,
+                window.AI_NPV_DATA.storedTerminalPricePerShare || terminalPricePerShare,
+                storedCurrentPrice
+            );
+        } else {
+            console.log('Re-rendering table with current values');
+            displayScenariosTable(
+                years,
+                dividendsPerShare,
+                terminalPricePerShare,
+                currentPricePerShare
+            );
+        }
+    };
+    
+    // Function to convert cash flows to totals - called by button
+    window.updateCashFlowsToTotals = function updateCashFlowsToTotals() {
+        console.log('updateCashFlowsToTotals button clicked');
+        const input = document.getElementById('ai-initial-cost');
+        const inputValue = input ? input.value.trim() : '';
+        
+        if (!inputValue || parseFloat(inputValue) === 0) {
+            alert('Please enter an Initial Investment amount first (e.g., -1000 for $1,000 investment)');
+            if (input) {
+                input.focus();
+            }
+            return;
+        }
+        
+        console.log('Converting cash flows to totals for investment:', inputValue);
+        
+        // Call the update function
+        if (window._updateAINPVTable) {
+            window._updateAINPVTable();
+        } else {
+            // Fallback: re-render table directly
+            if (window.AI_NPV_DATA && window.AI_NPV_DATA.storedDividendsPerShare) {
+                const storedYears = window.AI_NPV_DATA.years || [];
+                const storedCurrentPrice = window.AI_NPV_DATA.currentPricePerShare || 0;
+                displayScenariosTable(
+                    storedYears,
+                    window.AI_NPV_DATA.storedDividendsPerShare,
+                    window.AI_NPV_DATA.storedTerminalPricePerShare || {},
+                    storedCurrentPrice
+                );
+            } else {
+                alert('Please fetch cash flow scenarios first by clicking "Fetch CF Scenarios from ChatGPT"');
+            }
+        }
+    };
+    
+    // Store last known investment value to detect changes
+    if (!window._lastAINPVInvestment) {
+        window._lastAINPVInvestment = '';
+    }
+    
+    // Set up event listeners AND polling to detect investment changes
+    const setupInvestmentListener = () => {
+        const initialCostInputForTable = document.getElementById('ai-initial-cost');
+        if (initialCostInputForTable) {
+            // Check if value changed
+            const currentValue = initialCostInputForTable.value.trim();
+            if (currentValue !== window._lastAINPVInvestment && currentValue && parseFloat(currentValue) !== 0) {
+                console.log('Investment value changed from', window._lastAINPVInvestment, 'to', currentValue);
+                window._lastAINPVInvestment = currentValue;
+                // Update table immediately
+                setTimeout(() => {
+                    if (window._updateAINPVTable) {
+                        console.log('Auto-updating table due to investment change');
+                        window._updateAINPVTable();
+                    }
+                }, 100);
+            } else if (!initialCostInputForTable.dataset.listenerAttached) {
+                // Mark as attached to avoid duplicates
+                initialCostInputForTable.dataset.listenerAttached = 'true';
+                
+                // Use a single event listener with proper event handling
+                const handleInvestmentChange = () => {
+                    const val = initialCostInputForTable.value.trim();
+                    console.log('Investment input event fired, value:', val);
+                    if (val && parseFloat(val) !== 0 && val !== window._lastAINPVInvestment) {
+                        window._lastAINPVInvestment = val;
+                        setTimeout(() => {
+                            if (window._updateAINPVTable) {
+                                console.log('Calling updateAINPVTable from event listener');
+                                window._updateAINPVTable();
+                            }
+                        }, 150);
+                    }
+                };
+                
+                // Add listeners to the input
+                initialCostInputForTable.addEventListener('input', handleInvestmentChange);
+                initialCostInputForTable.addEventListener('change', handleInvestmentChange);
+                initialCostInputForTable.addEventListener('blur', handleInvestmentChange);
+                initialCostInputForTable.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                        handleInvestmentChange();
+                    }
+                });
+                
+                console.log('Event listeners attached to investment input');
+            }
+        }
+    };
+    
+    // Set up listener immediately
+    setupInvestmentListener();
+    
+    // Also poll every 500ms to catch changes (as backup)
+    if (!window._aiNpvInvestmentPollInterval) {
+        window._aiNpvInvestmentPollInterval = setInterval(() => {
+            setupInvestmentListener();
+        }, 500);
+    }
+    
+    // Add event listeners to update when dividend/terminal inputs change
+    const allInputs = container.querySelectorAll('.ai-div-low, .ai-div-base, .ai-div-high, .ai-terminal-low, .ai-terminal-base, .ai-terminal-high');
+    allInputs.forEach(input => {
+        input.addEventListener('input', () => {
+            // Update stored per-share values when user edits
+            const perShareValue = input.getAttribute('data-per-share');
+            if (perShareValue && investmentAmount > 0 && shares > 0) {
+                // User edited total, recalculate per-share
+                const newTotal = parseFloat(input.value) || 0;
+                const newPerShare = newTotal / shares;
+                input.setAttribute('data-per-share', newPerShare.toFixed(4));
+                
+                // Update stored values
+                if (window.AI_NPV_DATA) {
+                    const yearIdx = input.getAttribute('data-year-idx');
+                    const isTerminal = input.classList.contains('ai-terminal-low') || 
+                                     input.classList.contains('ai-terminal-base') || 
+                                     input.classList.contains('ai-terminal-high');
+                    
+                    if (isTerminal) {
+                        if (!window.AI_NPV_DATA.storedTerminalPricePerShare) {
+                            window.AI_NPV_DATA.storedTerminalPricePerShare = {};
+                        }
+                        if (input.classList.contains('ai-terminal-low')) {
+                            window.AI_NPV_DATA.storedTerminalPricePerShare.low = newPerShare;
+                        } else if (input.classList.contains('ai-terminal-base')) {
+                            window.AI_NPV_DATA.storedTerminalPricePerShare.base = newPerShare;
+                        } else if (input.classList.contains('ai-terminal-high')) {
+                            window.AI_NPV_DATA.storedTerminalPricePerShare.high = newPerShare;
+                        }
+                    } else if (yearIdx !== null) {
+                        const idx = parseInt(yearIdx);
+                        if (!window.AI_NPV_DATA.storedDividendsPerShare) {
+                            window.AI_NPV_DATA.storedDividendsPerShare = { low: [], base: [], high: [] };
+                        }
+                        if (input.classList.contains('ai-div-low')) {
+                            window.AI_NPV_DATA.storedDividendsPerShare.low[idx] = newPerShare;
+                        } else if (input.classList.contains('ai-div-base')) {
+                            window.AI_NPV_DATA.storedDividendsPerShare.base[idx] = newPerShare;
+                        } else if (input.classList.contains('ai-div-high')) {
+                            window.AI_NPV_DATA.storedDividendsPerShare.high[idx] = newPerShare;
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Update total cash flows display based on initial investment
+ * Shows total cash flows (multiplied by shares) when initial investment is entered
+ */
+window.updateTotalCashFlowsDisplay = function updateTotalCashFlowsDisplay() {
+    const initialCostInput = document.getElementById('ai-initial-cost');
+    const initialCost = initialCostInput ? parseFloat(initialCostInput.value) : NaN;
+    
+    if (isNaN(initialCost) || initialCost === 0 || !window.AI_NPV_DATA) {
+        const displayDiv = document.getElementById('total-cash-flows-display');
+        if (displayDiv) {
+            displayDiv.style.display = 'none';
+        }
+        return;
+    }
+    
+    const currentPricePerShare = window.AI_NPV_DATA.currentPricePerShare || 0;
+    if (!currentPricePerShare || currentPricePerShare <= 0) {
+        return;
+    }
+    
+    const investmentAmount = Math.abs(initialCost);
+    const shares = investmentAmount / currentPricePerShare;
+    
+    // Get dividend inputs
+    const lowInputs = document.querySelectorAll('.ai-div-low');
+    const baseInputs = document.querySelectorAll('.ai-div-base');
+    const highInputs = document.querySelectorAll('.ai-div-high');
+    const terminalLowInput = document.querySelector('.ai-terminal-low');
+    const terminalBaseInput = document.querySelector('.ai-terminal-base');
+    const terminalHighInput = document.querySelector('.ai-terminal-high');
+    
+    if (baseInputs.length === 0) return;
+    
+    const years = window.AI_NPV_DATA.years || [];
+    const currency = window.AI_NPV_DATA.currency || 'USD';
+    const currencySymbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
+    
+    // Build total cash flows table
+    let tbodyHtml = '';
+    
+    // Year 0 (initial investment)
+    tbodyHtml += `
+        <tr style="background: #fee2e2;">
+            <td style="padding: 0.5rem; font-weight: 600; color: #991b1b;">Year 0 (Initial Investment)</td>
+            <td style="padding: 0.5rem; text-align: right; color: #991b1b; font-weight: 600;">${currencySymbol}${(-investmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td style="padding: 0.5rem; text-align: right; color: #991b1b; font-weight: 600; background: #f3f4f6;">${currencySymbol}${(-investmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td style="padding: 0.5rem; text-align: right; color: #991b1b; font-weight: 600;">${currencySymbol}${(-investmentAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+        </tr>
+    `;
+    
+    // Regular years (dividends only)
+    for (let i = 0; i < baseInputs.length - 1; i++) {
+        const lowDiv = parseFloat(lowInputs[i].value) || 0;
+        const baseDiv = parseFloat(baseInputs[i].value) || 0;
+        const highDiv = parseFloat(highInputs[i].value) || 0;
+        
+        const lowTotal = lowDiv * shares;
+        const baseTotal = baseDiv * shares;
+        const highTotal = highDiv * shares;
+        
+        tbodyHtml += `
+            <tr>
+                <td style="padding: 0.5rem; font-weight: 600; color: #111827;">Year ${years[i]} (Dividend)</td>
+                <td style="padding: 0.5rem; text-align: right; color: #dc2626;">${currencySymbol}${lowTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td style="padding: 0.5rem; text-align: right; color: #111827; background: #f3f4f6; font-weight: 600;">${currencySymbol}${baseTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td style="padding: 0.5rem; text-align: right; color: #059669;">${currencySymbol}${highTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            </tr>
+        `;
+    }
+    
+    // Final year (dividend + terminal sale)
+    const lastIdx = baseInputs.length - 1;
+    const lowDiv = parseFloat(lowInputs[lastIdx].value) || 0;
+    const baseDiv = parseFloat(baseInputs[lastIdx].value) || 0;
+    const highDiv = parseFloat(highInputs[lastIdx].value) || 0;
+    const terminalLow = parseFloat(terminalLowInput?.value) || 0;
+    const terminalBase = parseFloat(terminalBaseInput?.value) || 0;
+    const terminalHigh = parseFloat(terminalHighInput?.value) || 0;
+    
+    const lowTotal = (lowDiv + terminalLow) * shares;
+    const baseTotal = (baseDiv + terminalBase) * shares;
+    const highTotal = (highDiv + terminalHigh) * shares;
+    
+    tbodyHtml += `
+        <tr style="background: #dbeafe; border-top: 2px solid #3b82f6;">
+            <td style="padding: 0.5rem; font-weight: 700; color: #1e40af;">Year ${years[lastIdx]} (Dividend + Sale)</td>
+            <td style="padding: 0.5rem; text-align: right; color: #1e40af; font-weight: 600;">${currencySymbol}${lowTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td style="padding: 0.5rem; text-align: right; color: #1e40af; font-weight: 700; background: #fff3cd;">${currencySymbol}${baseTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td style="padding: 0.5rem; text-align: right; color: #1e40af; font-weight: 600;">${currencySymbol}${highTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+        </tr>
+        <tr style="background: #f9fafb; border-top: 1px solid #e5e7eb;">
+            <td style="padding: 0.5rem; font-weight: 600; color: #6b7280; font-size: 0.75rem;" colspan="4">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Number of shares: <strong>${shares.toFixed(2)}</strong></span>
+                    <span>Investment: <strong>${currencySymbol}${investmentAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></span>
+                    <span>Price per share: <strong>${currencySymbol}${currentPricePerShare.toFixed(2)}</strong></span>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    const tbody = document.getElementById('total-cash-flows-body');
+    const displayDiv = document.getElementById('total-cash-flows-display');
+    
+    if (tbody) {
+        tbody.innerHTML = tbodyHtml;
+    }
+    if (displayDiv) {
+        displayDiv.style.display = 'block';
+    }
 }
 
 // displayOCFTable() removed - deprecated and unused
@@ -599,8 +1093,7 @@ async function calculateAINPV() {
     } else {
         // Use dividend/terminal-price scenarios
         const currentPricePerShare = window.AI_NPV_DATA?.currentPricePerShare || 0;
-        const terminalPricePerShare = window.AI_NPV_DATA?.terminalPricePerShare || {};
-
+        
         if (!currentPricePerShare || currentPricePerShare <= 0) {
             showAINPVError('Current price per share not available. Please fetch scenarios again.');
             return;
@@ -611,12 +1104,42 @@ async function calculateAINPV() {
 
         console.log(`Investment: $${investmentAmount} at $${currentPricePerShare}/share = ${shares.toFixed(4)} shares`);
 
-        for (let i = 0; i < baseInputs.length; i++) {
-            const lowDivPerShare = parseFloat(lowInputs[i].value);
-            const baseDivPerShare = parseFloat(baseInputs[i].value);
-            const highDivPerShare = parseFloat(highInputs[i].value);
+        // Get terminal prices from input fields (they may have been edited)
+        const terminalLowInput = document.querySelector('.ai-terminal-low');
+        const terminalBaseInput = document.querySelector('.ai-terminal-base');
+        const terminalHighInput = document.querySelector('.ai-terminal-high');
+        
+        // Check if values in table are already totals (multiplied by shares) or per-share
+        // If investment was entered, table shows totals; otherwise per-share
+        const hasInvestment = investmentAmount > 0 && shares > 0;
+        
+        let terminalLow, terminalBase, terminalHigh;
+        if (terminalLowInput && terminalBaseInput && terminalHighInput) {
+            // Get values from inputs
+            const terminalLowValue = parseFloat(terminalLowInput.value) || 0;
+            const terminalBaseValue = parseFloat(terminalBaseInput.value) || 0;
+            const terminalHighValue = parseFloat(terminalHighInput.value) || 0;
+            
+            // If table shows totals (has investment), use directly; otherwise multiply by shares
+            terminalLow = hasInvestment ? terminalLowValue : terminalLowValue * shares;
+            terminalBase = hasInvestment ? terminalBaseValue : terminalBaseValue * shares;
+            terminalHigh = hasInvestment ? terminalHighValue : terminalHighValue * shares;
+        } else {
+            // Fallback to stored values
+            const storedTerminal = window.AI_NPV_DATA?.terminalPricePerShare || {};
+            terminalLow = (storedTerminal.low || 0) * shares;
+            terminalBase = (storedTerminal.base || 0) * shares;
+            terminalHigh = (storedTerminal.high || 0) * shares;
+        }
 
-            if (isNaN(lowDivPerShare) || isNaN(baseDivPerShare) || isNaN(highDivPerShare)) {
+        console.log(`Terminal totals: Low=${terminalLow.toFixed(2)}, Base=${terminalBase.toFixed(2)}, High=${terminalHigh.toFixed(2)}`);
+
+        for (let i = 0; i < baseInputs.length; i++) {
+            const lowDivValue = parseFloat(lowInputs[i].value) || 0;
+            const baseDivValue = parseFloat(baseInputs[i].value) || 0;
+            const highDivValue = parseFloat(highInputs[i].value) || 0;
+
+            if (isNaN(lowDivValue) || isNaN(baseDivValue) || isNaN(highDivValue)) {
                 showAINPVError('Please enter valid numeric values for all scenarios');
                 return;
             }
@@ -624,13 +1147,33 @@ async function calculateAINPV() {
             const isLastYear = (i === baseInputs.length - 1);
 
             if (isLastYear) {
-                cashFlowsLow.push((lowDivPerShare + (terminalPricePerShare.low || 0)) * shares);
-                cashFlowsBase.push((baseDivPerShare + (terminalPricePerShare.base || 0)) * shares);
-                cashFlowsHigh.push((highDivPerShare + (terminalPricePerShare.high || 0)) * shares);
+                // Final year: dividend + terminal sale
+                // If table shows totals, use directly; otherwise multiply by shares
+                const lowDivTotal = hasInvestment ? lowDivValue : lowDivValue * shares;
+                const baseDivTotal = hasInvestment ? baseDivValue : baseDivValue * shares;
+                const highDivTotal = hasInvestment ? highDivValue : highDivValue * shares;
+                
+                const lowTotal = lowDivTotal + terminalLow;
+                const baseTotal = baseDivTotal + terminalBase;
+                const highTotal = highDivTotal + terminalHigh;
+                
+                console.log(`Final year ${i + 1}: Low=${lowTotal.toFixed(2)}, Base=${baseTotal.toFixed(2)}, High=${highTotal.toFixed(2)}`);
+                
+                cashFlowsLow.push(lowTotal);
+                cashFlowsBase.push(baseTotal);
+                cashFlowsHigh.push(highTotal);
             } else {
-                cashFlowsLow.push(lowDivPerShare * shares);
-                cashFlowsBase.push(baseDivPerShare * shares);
-                cashFlowsHigh.push(highDivPerShare * shares);
+                // Regular years: dividend only
+                // If table shows totals, use directly; otherwise multiply by shares
+                const lowTotal = hasInvestment ? lowDivValue : lowDivValue * shares;
+                const baseTotal = hasInvestment ? baseDivValue : baseDivValue * shares;
+                const highTotal = hasInvestment ? highDivValue : highDivValue * shares;
+                
+                console.log(`Year ${i + 1}: Low=${lowTotal.toFixed(2)}, Base=${baseTotal.toFixed(2)}, High=${highTotal.toFixed(2)}`);
+                
+                cashFlowsLow.push(lowTotal);
+                cashFlowsBase.push(baseTotal);
+                cashFlowsHigh.push(highTotal);
             }
         }
     }
@@ -692,6 +1235,14 @@ async function calculateAINPV() {
 
         // Display results
         displayScenarioNPVResults(ticker, npvResults);
+        
+        // Also refresh the cash flows table to show totals if investment was just entered
+        if (window._updateAINPVTable) {
+            setTimeout(() => {
+                console.log('Refreshing cash flows table after NPV calculation');
+                window._updateAINPVTable();
+            }, 200);
+        }
 
     } catch (error) {
         console.error('NPV calculation error:', error);
@@ -1443,7 +1994,9 @@ function addToPortfolioFromAI(ticker, buttonElement = null) {
             companyName: window.AI_NPV_DATA?.companyName || '',
             currency: window.AI_NPV_DATA?.currency || 'USD',
             exchange: window.AI_NPV_DATA?.exchange || '',
-            npvData: null
+            npvData: null,
+            dcfData: null,
+            source: 'ai_npv'
         };
 
         // Add NPV data if available
