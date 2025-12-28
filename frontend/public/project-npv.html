@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="dcf-api-base" content="http://127.0.0.1:5050/api">
+    <!-- Production API URL - Set this to your deployed backend URL -->
+    <meta name="api-base-production" content="https://arqam-backend.onrender.com">
     <title>Project NPV - ARQAM Program</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -21,39 +23,322 @@
     <script src="js/lib/simplex-noise.js"></script>
 
     <script>
-      // Automatic API configuration - tries multiple backends in order
-      window.API_BASE_URL = 'http://localhost:8000';
+      // Automatic API configuration - tries production first, then localhost
+      window.API_BASE_URL = null;
+      window.BACKEND_CONNECTED = false;
+      window.BACKEND_STATUS = 'checking';
+
+      // Check if we're running in production (not localhost)
+      function isProduction() {
+        return window.location.hostname !== 'localhost' && 
+               window.location.hostname !== '127.0.0.1' &&
+               !window.location.hostname.startsWith('192.168.') &&
+               !window.location.hostname.startsWith('10.') &&
+               window.location.protocol !== 'file:';
+      }
+
+      // Show connection status notification
+      function showConnectionStatus(message, type = 'info') {
+        const colors = {
+          success: '#10b981',
+          error: '#ef4444',
+          warning: '#f59e0b',
+          info: '#3b82f6'
+        };
+        
+        const notification = document.createElement('div');
+        notification.id = 'backend-status-notification';
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${colors[type] || colors.info};
+          color: white;
+          padding: 1rem 1.5rem;
+          border-radius: 8px;
+          z-index: 10000;
+          max-width: 400px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          font-size: 0.9rem;
+        `;
+        notification.innerHTML = message;
+        document.body.appendChild(notification);
+        
+        if (type === 'success') {
+          setTimeout(() => notification.remove(), 5000);
+        } else {
+          setTimeout(() => notification.remove(), 10000);
+        }
+      }
+
+      // Test backend connection with better error handling
+      async function testBackendConnection(url) {
+        try {
+          // Try health endpoint first
+          // Use longer timeout for production backends (Render free tier can take 30-60s to wake up)
+          const isProductionBackend = url.includes('onrender.com') || url.includes('railway.app') || url.includes('vercel.app');
+          const timeout = isProductionBackend ? 10000 : 5000; // 10s for production, 5s for local
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+          
+          console.log(`Testing ${url} (timeout: ${timeout}ms)...`);
+          
+          const response = await fetch(`${url}/health`, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`✓ Backend health check passed: ${url}`, data);
+            return true;
+          } else {
+            console.warn(`✗ Backend health check failed: ${url} - Status ${response.status}`);
+            return false;
+          }
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            const isProductionBackend = url.includes('onrender.com') || url.includes('railway.app');
+            if (isProductionBackend) {
+              console.warn(`✗ Backend connection timeout: ${url} (Backend may be sleeping - Render free tier)`);
+            } else {
+              console.warn(`✗ Backend connection timeout: ${url}`);
+            }
+          } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            console.warn(`✗ Backend connection failed (CORS/Network): ${url}`, error.message);
+            console.warn('Possible causes:', {
+              backendNotDeployed: 'Backend not deployed yet',
+              backendSleeping: 'Backend sleeping (Render free tier)',
+              corsIssue: 'CORS configuration issue',
+              networkIssue: 'Network connectivity problem'
+            });
+          } else {
+            console.warn(`✗ Backend connection error: ${url}`, error);
+          }
+          return false;
+        }
+      }
 
       // Auto-detect and test backend connection on page load
       async function detectBackend() {
-        const backends = [
-          'http://localhost:8000',
-          'http://localhost:5050',
-          'http://127.0.0.1:8000',
-          'http://127.0.0.1:5050'
-        ];
-
-        for (const url of backends) {
-          try {
-            const response = await fetch(`${url}/health`, {
-              method: 'GET',
-              signal: AbortSignal.timeout(2000)
-            });
-            if (response.ok) {
-              window.API_BASE_URL = url;
-              console.log(`Backend connected: ${url}`);
-              return url;
-            }
-          } catch (e) {
-            console.log(`Trying next backend...`);
+        const productionUrl = document.querySelector('meta[name="api-base-production"]')?.getAttribute('content');
+        const isProd = isProduction();
+        
+        window.BACKEND_STATUS = 'checking';
+        console.log('🔍 Detecting backend connection...');
+        console.log('Production mode:', isProd);
+        console.log('Production URL:', productionUrl);
+        
+        // Build list of backends to try
+        const backends = [];
+        
+        // If in production and production URL is set, try it first (with retry)
+        if (isProd && productionUrl && productionUrl.trim()) {
+          const cleanUrl = productionUrl.trim().replace(/\/$/, ''); // Remove trailing slash
+          backends.push(cleanUrl);
+          // Try with /api suffix removed if present
+          if (cleanUrl.endsWith('/api')) {
+            backends.push(cleanUrl.replace(/\/api$/, ''));
           }
         }
-        console.warn('No backend detected. Using default: http://localhost:8000');
-        return 'http://localhost:8000';
+        
+        // Always try localhost backends (for local development)
+        if (!isProd) {
+          backends.push(
+            'http://localhost:8000',
+            'http://localhost:5050',
+            'http://127.0.0.1:8000',
+            'http://127.0.0.1:5050'
+          );
+        }
+
+        // Test each backend
+        for (const url of backends) {
+          console.log(`Testing backend: ${url}`);
+          const connected = await testBackendConnection(url);
+          
+          if (connected) {
+            window.API_BASE_URL = url;
+            window.BACKEND_CONNECTED = true;
+            window.BACKEND_STATUS = 'connected';
+            console.log(`✅ Backend connected: ${url}`);
+            
+            if (isProd) {
+              showConnectionStatus(`
+                <strong>✓ Backend Connected</strong><br>
+                <small>Using: ${url}</small>
+              `, 'success');
+            }
+            
+            return url;
+          }
+        }
+        
+        // If in production and no backend found, use production URL if set (but mark as unverified)
+        if (isProd && productionUrl && productionUrl.trim()) {
+          const cleanUrl = productionUrl.trim().replace(/\/$/, '');
+          window.API_BASE_URL = cleanUrl;
+          window.BACKEND_CONNECTED = false;
+          window.BACKEND_STATUS = 'unverified';
+          console.warn(`⚠️ No backend health check succeeded. Using configured production URL: ${cleanUrl}`);
+          console.warn('⚠️ Backend may be sleeping or unreachable. API calls may fail.');
+          console.info('💡 Tip: If using Render free tier, the backend may take 30-60 seconds to wake up on first request.');
+          
+          // Show more helpful message based on backend type
+          const isRenderBackend = cleanUrl.includes('onrender.com');
+          const message = isRenderBackend 
+            ? `
+              <strong>⚠️ Backend May Be Sleeping</strong><br>
+              <small>Using: ${cleanUrl}</small><br>
+              <small style="font-size: 0.8rem;">Render free tier backends sleep after inactivity.</small><br>
+              <small style="font-size: 0.8rem;">First API call may take 30-60 seconds to wake up.</small><br>
+              <button onclick="window.wakeBackend()" style="margin-top: 8px; padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">Wake Up Backend</button>
+            `
+            : `
+              <strong>⚠️ Backend Connection Issue</strong><br>
+              <small>Using: ${cleanUrl}</small><br>
+              <small style="font-size: 0.8rem;">Backend may be unreachable. Check deployment status.</small>
+            `;
+          
+          showConnectionStatus(message, 'warning');
+          
+          // Add wake backend function
+          window.wakeBackend = async function() {
+            console.log('Waking up backend...');
+            const notification = document.getElementById('backend-status-notification');
+            if (notification) {
+              notification.innerHTML = '<strong>🔄 Waking up backend...</strong><br><small>This may take 30-60 seconds</small>';
+            }
+            
+            try {
+              const response = await fetch(`${cleanUrl}/health`, {
+                method: 'GET',
+                mode: 'cors',
+                signal: AbortSignal.timeout(60000) // 60 second timeout
+              });
+              
+              if (response.ok) {
+                window.BACKEND_CONNECTED = true;
+                window.BACKEND_STATUS = 'connected';
+                showConnectionStatus(`
+                  <strong>✅ Backend Awake!</strong><br>
+                  <small>Backend is now responding</small>
+                `, 'success');
+                console.log('✅ Backend woke up successfully');
+              }
+            } catch (error) {
+              console.error('Failed to wake backend:', error);
+              showConnectionStatus(`
+                <strong>❌ Backend Wake Failed</strong><br>
+                <small>${error.message}</small><br>
+                <small style="font-size: 0.8rem;">Check if backend is deployed</small>
+              `, 'error');
+            }
+          };
+          
+          return cleanUrl;
+        }
+        
+        // Fallback for local development
+        const defaultUrl = 'http://localhost:8000';
+        window.API_BASE_URL = defaultUrl;
+        window.BACKEND_CONNECTED = false;
+        window.BACKEND_STATUS = 'disconnected';
+        console.warn(`❌ No backend detected. Using default: ${defaultUrl}`);
+        
+        // Show notification if in production and no backend configured
+        if (isProd && (!productionUrl || !productionUrl.trim())) {
+          showConnectionStatus(`
+            <strong>❌ Backend Not Configured</strong><br>
+            <small>Please set the production API URL in the HTML meta tag or deploy your backend.</small>
+          `, 'error');
+        } else if (!isProd) {
+          showConnectionStatus(`
+            <strong>⚠️ Local Backend Not Found</strong><br>
+            <small>Start your backend server: <code>cd backend && python -m uvicorn app.main:app --reload</code></small>
+          `, 'warning');
+        }
+        
+        return defaultUrl;
       }
 
       // Detect backend when page loads
-      detectBackend();
+      detectBackend().then(() => {
+        // Store API base URL in localStorage for persistence
+        if (window.API_BASE_URL) {
+          localStorage.setItem('apiBaseUrl', window.API_BASE_URL);
+        }
+      });
+
+      // Global error handler for API failures
+      window.handleAPIError = function(error, context = 'API call') {
+        console.error(`[${context}]`, error);
+        
+        let userMessage = 'An error occurred';
+        let errorType = 'error';
+        
+        if (error.message) {
+          if (error.message.includes('Cannot connect to backend') || 
+              error.message.includes('Failed to fetch') ||
+              error.message.includes('network')) {
+            userMessage = `Cannot connect to backend server. Please check if the backend is deployed and accessible.`;
+            errorType = 'warning';
+            
+            // Show connection status
+            if (window.BACKEND_STATUS === 'unverified' || window.BACKEND_STATUS === 'disconnected') {
+              showConnectionStatus(`
+                <strong>⚠️ Backend Connection Failed</strong><br>
+                <small>${error.message}</small><br>
+                <small style="font-size: 0.8rem;">Backend URL: ${window.API_BASE_URL || 'Not configured'}</small>
+              `, 'error');
+            }
+          } else if (error.message.includes('timeout')) {
+            userMessage = 'Request timed out. The backend may be sleeping (free tier). Please try again.';
+            errorType = 'warning';
+          } else {
+            userMessage = error.message;
+          }
+        }
+        
+        // Show error notification
+        showConnectionStatus(`
+          <strong>❌ ${context} Failed</strong><br>
+          <small>${userMessage}</small>
+        `, errorType);
+        
+        return userMessage;
+      };
+
+      // Override fetch to add global error handling (optional - can be disabled)
+      const originalFetch = window.fetch;
+      window.fetch = async function(...args) {
+        try {
+          const response = await originalFetch.apply(this, args);
+          
+          // Log failed requests for debugging
+          if (!response.ok && args[0] && typeof args[0] === 'string' && args[0].includes('/api/')) {
+            console.warn(`API request failed: ${args[0]} - Status: ${response.status}`);
+          }
+          
+          return response;
+        } catch (error) {
+          // Only handle network/CORS errors, not application errors
+          if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('/api/')) {
+              console.error('Network error in fetch:', args[0], error);
+            }
+          }
+          throw error;
+        }
+      };
     </script>
 
     <style>

@@ -27,5 +27,5 @@ def get_db():
 
 def init_db():
     """Initialize database tables"""
-    from app.models import asset, valuation, portfolio, sentiment
+    from app.models import asset, valuation, portfolio, sentiment, funds
     Base.metadata.create_all(bind=engine)

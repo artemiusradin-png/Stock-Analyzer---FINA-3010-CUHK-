@@ -2,11 +2,25 @@
   publish = "frontend/public"
   command = "echo 'Static site - no build needed'"
   
-# Note: If Netlify auto-detects requirements.txt and tries to install Python dependencies,
-# the runtime.txt file will ensure Python 3.11.9 is used (compatible with numpy 1.24.3)
-# Since we're only deploying static files, Python dependencies are not actually needed
+# Note: This is a static site deployment - no dependencies needed
+# requirements.txt has been moved to backend/ and runtime.txt removed to prevent Netlify from installing Python dependencies
 
-# Uncomment and adjust if you need SPA-style routing
+# API proxy redirects - proxy /api/* requests to backend
+# Note: Frontend makes direct calls to backend URL, but this provides a fallback option
+[[redirects]]
+  from = "/api/*"
+  to = "https://arqam-backend.onrender.com/api/:splat"
+  status = 200
+  force = true
+  headers = {X-From = "Netlify"}
+
+# Health check proxy
+[[redirects]]
+  from = "/health"
+  to = "https://arqam-backend.onrender.com/health"
+  status = 200
+
+# SPA-style routing (optional - uncomment if needed)
 #[[redirects]]
 #  from = "/*"
 #  to = "/index.html"

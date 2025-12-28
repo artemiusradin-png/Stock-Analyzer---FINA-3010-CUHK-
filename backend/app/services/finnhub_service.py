@@ -108,17 +108,23 @@ class FinnhubService:
                 data = response.json()
 
                 # Finnhub returns 0 for all fields if ticker not found
-                if data.get('c', 0) == 0:
+                # But we still return the quote object even if current is 0,
+                # as previousClose might be available
+                current_price = data.get("c", 0)
+                previous_close = data.get("pc", 0)
+                
+                # Only return None if both current and previousClose are 0 (likely invalid ticker)
+                if current_price == 0 and previous_close == 0:
                     return None
 
                 quote = {
-                    "current": data.get("c", 0),  # Current price
+                    "current": current_price,  # Current price
                     "change": data.get("d", 0),   # Change
                     "percentChange": data.get("dp", 0),  # Percent change
                     "high": data.get("h", 0),     # High price of the day
                     "low": data.get("l", 0),      # Low price of the day
                     "open": data.get("o", 0),     # Open price of the day
-                    "previousClose": data.get("pc", 0)  # Previous close price
+                    "previousClose": previous_close  # Previous close price
                 }
 
                 return quote
@@ -162,3 +168,53 @@ class FinnhubService:
 
             except Exception as e:
                 raise Exception(f"Finnhub symbol search failed: {str(e)}")
+
+    async def get_recommendation_trend(self, ticker: str) -> Optional[Dict]:
+        """
+        Fetch latest analyst recommendation trend for a ticker.
+
+        Returns a dict like:
+        {
+            "strongBuy": int,
+            "buy": int,
+            "hold": int,
+            "sell": int,
+            "strongSell": int,
+            "period": "2024-12-01",
+            "total": int
+        }
+        or None if unavailable.
+        """
+        url = f"{self.base_url}/stock/recommendation"
+        params = {
+            "symbol": ticker.upper(),
+            "token": self.api_key,
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+
+                if not isinstance(data, list) or not data:
+                    return None
+
+                latest = data[0]
+                total = (
+                    latest.get("strongBuy", 0)
+                    + latest.get("buy", 0)
+                    + latest.get("hold", 0)
+                    + latest.get("sell", 0)
+                    + latest.get("strongSell", 0)
+                )
+
+                if total <= 0:
+                    return None
+
+                latest["total"] = total
+                return latest
+
+            except Exception:
+                # Recommendation data is non-critical; return None on failure
+                return None

@@ -4,6 +4,7 @@ from app.models.valuation import DCFValuation, ScenarioValuation
 from app.models.portfolio import Portfolio, PortfolioHolding, PortfolioPerformance
 from app.models.sentiment import NewsSentiment, SentimentSummary
 from app.models.market_data import HistoricalPrice, AssetReturn, CovarianceMatrix
+from app.models.funds import AccountConnection, AccountBalanceSnapshot, Institution, ConnectionStatus
 
 __all__ = [
     "Asset",
@@ -17,4 +18,8 @@ __all__ = [
     "HistoricalPrice",
     "AssetReturn",
     "CovarianceMatrix",
+    "AccountConnection",
+    "AccountBalanceSnapshot",
+    "Institution",
+    "ConnectionStatus",
 ]

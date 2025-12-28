@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
 
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5050", "http://127.0.0.1:5500", "http://localhost:8000"]
+    # CORS - Allow all origins in production (can be restricted via environment variable)
+    CORS_ORIGINS: List[str] = ["*"]  # Allows all origins - backend uses allow_origins=["*"] in main.py
 
     # Default Financial Parameters
     DEFAULT_RISK_FREE_RATE: float = 0.045

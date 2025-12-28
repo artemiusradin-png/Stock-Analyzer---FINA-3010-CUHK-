@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 import io
+import os
 
 from app.services.ai_npv_service import AINPVService
 
@@ -15,7 +16,16 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    Image,
+    PageBreak,
+    KeepTogether,
+)
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from openpyxl import Workbook
@@ -230,191 +240,288 @@ async def export_pdf(request: ExportRequest):
         currency = getattr(request, 'currency', None) or 'USD'
         currency_symbol = {'USD': '$', 'EUR': '€', 'GBP': '£', 'CAD': 'C$', 'JPY': '¥'}.get(currency, currency)
         generation_date = datetime.utcnow().strftime('%Y-%m-%d')
+        hero_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "annualreport2024.png"))
 
-        # ============== MODERN REDESIGNED HEADER ==============
+        # ============== COVER PAGE (Revolut Annual Report inspired) ==============
         company_display = request.company_name or request.ticker
         ticker_exchange = f"{request.ticker}" + (f" • {request.exchange}" if request.exchange else "")
-        
-        # Logo and Brand section (top right)
+        report_year = datetime.utcnow().year
+
         brand_style = ParagraphStyle(
             'BrandStyle',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=22,
-            textColor=colors.HexColor('#1a1a1a'),
-            alignment=2,
-            letterSpacing=1,
-            spaceAfter=1
+            fontSize=12,
+            textColor=colors.HexColor('#111827'),
+            leading=14,
+            spaceAfter=24
         )
-        tagline_style = ParagraphStyle(
-            'TaglineStyle',
+
+        title_year_style = ParagraphStyle(
+            'TitleYearStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=44,
+            textColor=colors.HexColor('#111827'),
+            leading=50,
+            spaceAfter=8
+        )
+
+        title_main_style = ParagraphStyle(
+            'TitleMainStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=36,
+            textColor=colors.HexColor('#111827'),
+            leading=40,
+            spaceAfter=16
+        )
+
+        subtitle_style = ParagraphStyle(
+            'SubtitleStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=11,
+            textColor=colors.HexColor('#374151'),
+            leading=16,
+            spaceAfter=60
+        )
+
+        footer_style = ParagraphStyle(
+            'FooterStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            textColor=colors.HexColor('#6b7280'),
+            leading=12,
+            spaceBefore=80
+        )
+
+        left_stack = [
+            Paragraph("Revolut", brand_style),
+            Paragraph(str(report_year), title_year_style),
+            Paragraph("Annual Report", title_main_style),
+            Paragraph(
+                "Including consolidated financial statements for the year ended 31 December "
+                f"{report_year}",
+                subtitle_style
+            ),
+            Paragraph("Revolut Group Holdings Ltd<br/>Registered number: 12743269", footer_style)
+        ]
+
+        hero_img = None
+        if os.path.exists(hero_path):
+            try:
+                hero_img = Image(hero_path, kind='proportional')
+                hero_img._restrictSize(3.25 * inch, 6.5 * inch)
+            except Exception:
+                hero_img = None
+
+        cover_table = Table(
+            [[KeepTogether(left_stack), hero_img if hero_img else Spacer(1, 1)]],
+            colWidths=[3.25 * inch, 3.25 * inch]
+        )
+        cover_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 24),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 24),
+        ]))
+        elements.append(cover_table)
+        elements.append(PageBreak())
+
+        # ============== HEADER FOR CONTENT PAGES ==============
+        header_meta_style = ParagraphStyle(
+            'HeaderMeta',
             parent=styles['Normal'],
             fontName='Helvetica',
             fontSize=9,
             textColor=colors.HexColor('#6b7280'),
-            alignment=2,
-            letterSpacing=0.3
+            spaceAfter=10
         )
-        
-        # Company info section (left)
-        company_name_style = ParagraphStyle(
-            'CompanyNameStyle',
+        header_title_style = ParagraphStyle(
+            'HeaderTitle',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
             fontSize=20,
-            textColor=colors.HexColor('#0f0f0f'),
-            leading=22,
-            spaceAfter=2
+            textColor=colors.HexColor('#111827'),
+            spaceAfter=12,
+            leading=24
         )
-        ticker_style = ParagraphStyle(
-            'TickerStyle',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=6,
-            textColor=colors.HexColor('#6b7280'),
-            leading=8
-        )
-        
-        # Create header with two-row layout
-        # Single-row header: company/ticker left, ARQAM + tagline right
-        header_data = [[
-            Paragraph(f"<b>{company_display}</b><br/><font color='#6b7280' size='7'>{ticker_exchange}</font>", company_name_style),
-            Paragraph("<b>ARQAM</b><br/><font color='#6b7280' size='9'>Investment Analysis & Valuation</font>", brand_style)
-        ]]
 
-        header_table = Table(header_data, colWidths=[4.6 * inch, 2.4 * inch])
+        header_table = Table(
+            [[
+                Paragraph("Revolut Valuation Report", header_meta_style),
+                Paragraph(f"{generation_date}", header_meta_style)
+            ]],
+            colWidths=[3.5 * inch, 3.5 * inch]
+        )
         header_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (0, 0), 'LEFT'),
             ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ]))
         elements.append(header_table)
-
-        # Thick rule under header (no overlapping gray lines)
-        rule_table = Table([['']], colWidths=[7 * inch])
-        rule_table.setStyle(TableStyle([
-            ('LINEABOVE', (0, 0), (-1, 0), 1.0, colors.HexColor('#111111')),
-        ]))
-        elements.append(rule_table)
+        elements.append(Paragraph(f"{company_display}", header_title_style))
+        elements.append(Paragraph(ticker_exchange, header_meta_style))
         elements.append(Spacer(1, 0.2 * inch))
 
-        # ============== PRICE & DATE ==============
+        # ============== DATE & PRICE (Minimal) ==============
         stock_price_val = getattr(request, 'stock_price', None)
-        price_text = f"<b>Price as per {generation_date}:</b> {currency_symbol}{stock_price_val:.2f}" if stock_price_val is not None else f"<b>Report Generated:</b> {generation_date}"
-        price_style = ParagraphStyle(
-            'PriceStyle',
+        meta_info_style = ParagraphStyle(
+            'MetaInfoStyle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            textColor=colors.HexColor('#6b7280'),
+            spaceAfter=8
+        )
+
+        date_price_data = [[
+            Paragraph(f"Report Date: {generation_date}", meta_info_style),
+            Paragraph(f"Stock Price: {currency_symbol}{stock_price_val:.2f}" if stock_price_val else "", meta_info_style)
+        ]]
+
+        date_price_table = Table(date_price_data, colWidths=[3.5 * inch, 3.5 * inch])
+        date_price_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(date_price_table)
+        elements.append(Spacer(1, 0.25 * inch))
+
+        # ============== NPV RESULT (Large, prominent) ==============
+        npv_label_style = ParagraphStyle(
+            'NPVLabelStyle',
             parent=styles['Normal'],
             fontName='Helvetica',
             fontSize=11,
-            textColor=colors.black
+            textColor=colors.HexColor('#6b7280'),
+            spaceAfter=4
         )
-        elements.append(Paragraph(price_text, price_style))
-        elements.append(Spacer(1, 0.15 * inch))
+        elements.append(Paragraph("Net Present Value", npv_label_style))
 
-        # ============== NPV & DECISION ==============
-        npv_style = ParagraphStyle(
-            'NPVStyle',
-            parent=styles['Heading2'],
+        npv_value_style = ParagraphStyle(
+            'NPVValueStyle',
+            parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=16,
-            textColor=colors.HexColor('#0f0f0f'),
-            spaceAfter=6
+            fontSize=48,
+            textColor=colors.HexColor('#000000'),
+            spaceAfter=16
         )
-        elements.append(Paragraph(f"<b>Net Present Value:</b> {currency_symbol}{npv_data['npv']:,.2f}", npv_style))
+        elements.append(Paragraph(f"{currency_symbol}{npv_data['npv']:,.2f}", npv_value_style))
 
+        # Decision (colored indicator)
+        decision_color = colors.HexColor('#10b981') if npv_data['decision'].lower() == 'accept' else colors.HexColor('#ef4444')
         decision_style = ParagraphStyle(
             'DecisionStyle',
-            parent=styles['Heading2'],
+            parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=16,
-            textColor=colors.HexColor('#10b981') if npv_data['decision'].lower() == 'accept' else colors.HexColor('#ef4444'),
-            spaceAfter=8
+            fontSize=14,
+            textColor=decision_color,
+            spaceAfter=20
         )
-        elements.append(Paragraph(f"<b>Decision:</b> {npv_data['decision'].upper()}", decision_style))
-        elements.append(Spacer(1, 0.2 * inch))
+        elements.append(Paragraph(f"Investment Decision: {npv_data['decision'].upper()}", decision_style))
+        elements.append(Spacer(1, 0.15 * inch))
 
         # ============== COMPANY OVERVIEW ==============
         if request.description:
-            overview_title_style = ParagraphStyle(
-                'OverviewTitle',
-                parent=styles['Heading3'],
+            section_heading_style = ParagraphStyle(
+                'SectionHeading',
+                parent=styles['Normal'],
                 fontName='Helvetica-Bold',
-                fontSize=13,
-                textColor=colors.black,
-                spaceAfter=8
+                fontSize=16,
+                textColor=colors.HexColor('#000000'),
+                spaceAfter=12,
+                spaceBefore=8
             )
-            elements.append(Paragraph("<b>Company Overview</b>", overview_title_style))
+            elements.append(Paragraph("Company Overview", section_heading_style))
 
-            overview_style = ParagraphStyle(
+            overview_text_style = ParagraphStyle(
                 'OverviewText',
                 parent=styles['Normal'],
                 fontName='Helvetica',
                 fontSize=10,
-                textColor=colors.black,
-                leading=14,
-                alignment=4,  # Justify
-                spaceAfter=12
+                textColor=colors.HexColor('#374151'),
+                leading=16,
+                alignment=0,
+                spaceAfter=16
             )
-            elements.append(Paragraph(request.description, overview_style))
-            elements.append(Spacer(1, 0.2 * inch))
+            elements.append(Paragraph(request.description, overview_text_style))
+            elements.append(Spacer(1, 0.15 * inch))
 
-        # ============== METRICS TABLE ==============
-        metrics_title_style = ParagraphStyle(
-            'MetricsTitle',
-            parent=styles['Heading3'],
+        # ============== VALUATION METRICS (Clean table) ==============
+        section_heading_style = ParagraphStyle(
+            'SectionHeading',
+            parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=13,
-            textColor=colors.black,
-            spaceAfter=8
+            fontSize=16,
+            textColor=colors.HexColor('#000000'),
+            spaceAfter=12,
+            spaceBefore=8
         )
-        elements.append(Paragraph("<b>Valuation Metrics</b>", metrics_title_style))
+        elements.append(Paragraph("Key Metrics", section_heading_style))
 
         metrics_data = [
             ['Metric', 'Value'],
-            ['Initial Cost', f"{currency_symbol}{npv_data['initial_cost']:,.2f}"],
+            ['Initial Investment', f"{currency_symbol}{npv_data['initial_cost']:,.2f}"],
             ['Required Return', f"{npv_data['required_return']:.2f}%"],
-            ['IRR', f"{npv_data['irr']:.2f}%" if npv_data.get('irr') else 'N/A'],
-            ['Project Duration', f"{npv_data['project_duration']} years"]
+            ['Internal Rate of Return', f"{npv_data['irr']:.2f}%" if npv_data.get('irr') else 'N/A'],
+            ['Investment Horizon', f"{npv_data['project_duration']} years"]
         ]
 
         metrics_table = Table(metrics_data, colWidths=[3.5 * inch, 3.5 * inch])
         metrics_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f7f7f7')),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#0f0f0f')),
+            # Header row
+            ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#6b7280')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            # Data rows
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor('#000000')),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica'),
+            ('FONTNAME', (1, 1), (1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (-1, -1), 11),
+            # Alignment
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.7, colors.HexColor('#1a1a1a'))
+            # Padding
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            # Borders - only horizontal lines
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#e5e7eb')),
+            ('LINEBELOW', (0, 1), (-1, -2), 0.5, colors.HexColor('#f3f4f6')),
+            ('LINEBELOW', (0, -1), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
         ]))
         elements.append(metrics_table)
         elements.append(Spacer(1, 0.3 * inch))
 
-        # ============== INTRINSIC VALUE / NPV SECTION ==============
-        section_title_style = ParagraphStyle(
-            'SectionTitle',
-            parent=styles['Heading2'],
+        # ============== CASH FLOW ANALYSIS ==============
+        section_heading_style_2 = ParagraphStyle(
+            'SectionHeading2',
+            parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=14,
-            textColor=colors.black,
-            spaceAfter=10,
-            spaceBefore=6
+            fontSize=16,
+            textColor=colors.HexColor('#000000'),
+            spaceAfter=12,
+            spaceBefore=8
         )
-        elements.append(Paragraph("<b>Intrinsic Value / NPV Calculation</b>", section_title_style))
+        elements.append(Paragraph("Cash Flow Analysis", section_heading_style_2))
 
-        # Cash flow breakdown table
+        # Cash flow breakdown table (minimalist style)
         discount_data = [['Year', 'Cash Flow', 'Discount Factor', 'Present Value']]
         for row in npv_data['discount_table']:
             discount_data.append([
-                f"Year {row['year']}" if row['year'] > 0 else "Initial",
+                f"Year {row['year']}" if row['year'] > 0 else "Year 0",
                 f"{currency_symbol}{row['cash_flow']:,.2f}",
                 f"{row['discount_factor']:.4f}",
                 f"{currency_symbol}{row['present_value']:,.2f}"
@@ -422,32 +529,53 @@ async def export_pdf(request: ExportRequest):
 
         discount_table = Table(discount_data, colWidths=[1.75 * inch, 1.75 * inch, 1.75 * inch, 1.75 * inch])
         discount_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f7f7f7')),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#0f0f0f')),
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#6b7280')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            # Data
+            ('TEXTCOLOR', (0, 1), (0, -1), colors.HexColor('#374151')),
+            ('TEXTCOLOR', (1, 1), (-1, -1), colors.HexColor('#000000')),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica'),
+            ('FONTNAME', (1, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            # Alignment
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            # Padding
             ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.7, colors.HexColor('#1a1a1a'))
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            # Minimal borders
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#e5e7eb')),
+            ('LINEBELOW', (0, 1), (-1, -2), 0.25, colors.HexColor('#f3f4f6')),
+            ('LINEBELOW', (0, -1), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
         ]))
         elements.append(discount_table)
         elements.append(Spacer(1, 0.3 * inch))
 
         # ============== SCENARIO ANALYSIS ==============
         if request.scenario_results and request.scenario_explanations:
-            elements.append(Paragraph("<b>Scenario Analysis</b>", section_title_style))
-            elements.append(Spacer(1, 0.1 * inch))
+            scenario_heading_style = ParagraphStyle(
+                'ScenarioHeading',
+                parent=styles['Normal'],
+                fontName='Helvetica-Bold',
+                fontSize=16,
+                textColor=colors.HexColor('#000000'),
+                spaceAfter=12,
+                spaceBefore=8
+            )
+            elements.append(Paragraph("Scenario Analysis", scenario_heading_style))
 
-            # Scenario comparison table
+            # Scenario comparison table (minimalist)
             scenario_data = [['Scenario', 'NPV', 'IRR', 'Decision']]
             for scenario_name in ['low', 'base', 'high']:
                 if scenario_name in request.scenario_results:
                     sc_result = request.scenario_results[scenario_name]
                     scenario_data.append([
-                        scenario_name.capitalize(),
+                        scenario_name.capitalize() + ' Case',
                         f"{currency_symbol}{sc_result['npv']:,.2f}",
                         f"{sc_result['irr']:.2f}%" if sc_result.get('irr') else 'N/A',
                         sc_result['decision'].upper()
@@ -455,19 +583,32 @@ async def export_pdf(request: ExportRequest):
 
             scenario_table = Table(scenario_data, colWidths=[1.75 * inch, 1.75 * inch, 1.75 * inch, 1.75 * inch])
             scenario_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f7f7f7')),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#0f0f0f')),
+                # Header
+                ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#6b7280')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                # Data
+                ('TEXTCOLOR', (0, 1), (0, -1), colors.HexColor('#374151')),
+                ('TEXTCOLOR', (1, 1), (-1, -1), colors.HexColor('#000000')),
+                ('FONTNAME', (0, 1), (0, -1), 'Helvetica'),
+                ('FONTNAME', (1, 1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                # Alignment
                 ('ALIGN', (0, 0), (0, -1), 'LEFT'),
                 ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.7, colors.HexColor('#1a1a1a'))
+                # Padding
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                # Minimal borders
+                ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#e5e7eb')),
+                ('LINEBELOW', (0, 1), (-1, -2), 0.25, colors.HexColor('#f3f4f6')),
+                ('LINEBELOW', (0, -1), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
             ]))
             elements.append(scenario_table)
-            elements.append(Spacer(1, 0.25 * inch))
+            elements.append(Spacer(1, 0.3 * inch))
 
             # Detailed scenario explanations
             for scenario_name, scenario_label in [('low', 'Downside Case'), ('base', 'Base Case'), ('high', 'Upside Case')]:
@@ -476,52 +617,55 @@ async def export_pdf(request: ExportRequest):
 
                     scenario_subtitle_style = ParagraphStyle(
                         f'{scenario_name.capitalize()}Subtitle',
-                        parent=styles['Heading4'],
+                        parent=styles['Normal'],
                         fontName='Helvetica-Bold',
-                        fontSize=12,
-                        textColor=colors.HexColor('#0f0f0f'),
-                        spaceAfter=6,
-                        spaceBefore=6
+                        fontSize=13,
+                        textColor=colors.HexColor('#000000'),
+                        spaceAfter=8,
+                        spaceBefore=10
                     )
-                    elements.append(Paragraph(f"<b>{scenario_label}</b>", scenario_subtitle_style))
+                    elements.append(Paragraph(scenario_label, scenario_subtitle_style))
 
-                    bullet_style = ParagraphStyle(
-                        f'{scenario_name.capitalize()}Bullets',
+                    explanation_text_style = ParagraphStyle(
+                        f'{scenario_name.capitalize()}Text',
                         parent=styles['Normal'],
                         fontName='Helvetica',
-                        fontSize=10,
-                        textColor=colors.HexColor('#111111'),
-                        leading=13,
-                        leftIndent=12,
-                        bulletIndent=0,
-                        spaceBefore=2,
-                        spaceAfter=8
+                        fontSize=9,
+                        textColor=colors.HexColor('#4b5563'),
+                        leading=14,
+                        leftIndent=0,
+                        spaceAfter=12
                     )
-                    sentences = [s.strip() for s in explanation.replace('\n', ' ').split('.') if s.strip()]
-                    for bullet in sentences[:8]:
-                        elements.append(Paragraph(f"<bullet>•</bullet> {bullet}.", bullet_style))
+                    elements.append(Paragraph(explanation, explanation_text_style))
 
-        # ============== FOOTER ==============
-        # Footer will be added on last page using PageTemplate
+        # ============== FOOTER (Minimalist) ==============
         def add_footer(canvas, doc):
-            """Add footer to last page only"""
+            """Add minimalist footer to all pages"""
             canvas.saveState()
-            footer_y = 0.5 * inch
 
-            # ARQAM brand name
-            canvas.setFont('Helvetica-Bold', 10)
-            canvas.setFillColor(colors.HexColor('#0f0f0f'))
-            canvas.drawString(0.75 * inch, footer_y + 0.2 * inch, 'ARQAM')
+            # Draw thin separator line at top of footer
+            footer_top_y = 0.65 * inch
+            canvas.setStrokeColor(colors.HexColor('#e5e7eb'))
+            canvas.setLineWidth(0.5)
+            canvas.line(0.75 * inch, footer_top_y, letter[0] - 0.75 * inch, footer_top_y)
 
-            # Artemis Radin
+            footer_y = 0.42 * inch
+
+            # ARQAM brand (left side)
             canvas.setFont('Helvetica', 9)
-            canvas.setFillColor(colors.HexColor('#6b7280'))
-            canvas.drawString(0.75 * inch, footer_y, 'Artemis Radin')
+            canvas.setFillColor(colors.HexColor('#000000'))
+            canvas.drawString(0.75 * inch, footer_y, 'ARQAM')
+
+            # Tagline (left side, below brand)
+            canvas.setFont('Helvetica', 7)
+            canvas.setFillColor(colors.HexColor('#9ca3af'))
+            canvas.drawString(0.75 * inch, footer_y - 0.12 * inch, 'Investment Analysis & Valuation')
 
             # Copyright (right-aligned)
-            canvas.setFont('Helvetica', 9)
-            copyright_text = '© 2025 ARQAM. All rights reserved.'
-            copyright_width = canvas.stringWidth(copyright_text, 'Helvetica', 9)
+            canvas.setFont('Helvetica', 7)
+            canvas.setFillColor(colors.HexColor('#9ca3af'))
+            copyright_text = f'© {datetime.utcnow().year} ARQAM. All rights reserved.'
+            copyright_width = canvas.stringWidth(copyright_text, 'Helvetica', 7)
             canvas.drawString(letter[0] - 0.75 * inch - copyright_width, footer_y, copyright_text)
 
             canvas.restoreState()

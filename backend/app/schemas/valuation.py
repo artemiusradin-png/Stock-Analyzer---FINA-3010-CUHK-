@@ -8,6 +8,15 @@ class DCFParameters(BaseModel):
     """Input parameters for DCF calculation"""
     ticker: str = Field(..., description="Stock ticker symbol")
 
+    # Optional manual override for starting revenue (in dollars)
+    # If provided and backend cannot fetch revenue from data sources,
+    # this value will be used as revenue_start.
+    revenue_override: Optional[float] = Field(
+        None,
+        ge=0.0,
+        description="Optional override for starting revenue (total revenue in dollars)",
+    )
+
     # Starting assumptions
     revenue_growth_start: Optional[float] = Field(0.08, ge=-0.5, le=2.0)
     ebit_margin_start: Optional[float] = Field(0.25, ge=0.0, le=1.0)
