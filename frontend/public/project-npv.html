@@ -215,32 +215,38 @@
             console.log('Waking up backend...');
             const notification = document.getElementById('backend-status-notification');
             if (notification) {
-              notification.innerHTML = '<strong>🔄 Waking up backend...</strong><br><small>This may take 30-60 seconds</small>';
+              notification.innerHTML = '<strong>🔄 Waking up backend...</strong><br><small>This may take 60-90 seconds (Render free tier)</small>';
             }
             
             try {
+              // Try health endpoint with longer timeout
               const response = await fetch(`${cleanUrl}/health`, {
                 method: 'GET',
                 mode: 'cors',
-                signal: AbortSignal.timeout(60000) // 60 second timeout
+                signal: AbortSignal.timeout(90000) // 90 second timeout for Render free tier
               });
               
               if (response.ok) {
                 window.BACKEND_CONNECTED = true;
                 window.BACKEND_STATUS = 'connected';
+                window.API_BASE_URL = cleanUrl; // Update API base URL
                 showConnectionStatus(`
                   <strong>✅ Backend Awake!</strong><br>
-                  <small>Backend is now responding</small>
+                  <small>Backend is now responding. You can try fetching data again.</small>
                 `, 'success');
                 console.log('✅ Backend woke up successfully');
+                return true;
+              } else {
+                throw new Error(`Backend responded with status ${response.status}`);
               }
             } catch (error) {
               console.error('Failed to wake backend:', error);
               showConnectionStatus(`
                 <strong>❌ Backend Wake Failed</strong><br>
                 <small>${error.message}</small><br>
-                <small style="font-size: 0.8rem;">Check if backend is deployed</small>
+                <small style="font-size: 0.8rem;">Backend may not be deployed. Check Render dashboard.</small>
               `, 'error');
+              return false;
             }
           };
           

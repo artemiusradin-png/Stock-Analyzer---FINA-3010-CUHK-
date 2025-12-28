@@ -66,11 +66,27 @@ async function fetchDCFCompanyData() {
         const apiUrl = `${DCF_API_BASE}/api/ai-npv/fetch-dcf-financials`;
         console.log('Full API URL:', apiUrl);
 
+        // Check if backend is configured
+        if (!DCF_API_BASE || DCF_API_BASE === 'http://localhost:8000') {
+            const isProduction = window.location.hostname !== 'localhost';
+            if (isProduction) {
+                throw new Error('Backend not configured. Please deploy backend to Render or update the API URL.');
+            }
+        }
+
+        // Use longer timeout for production backends (Render free tier can take 60+ seconds to wake)
+        const isProductionBackend = DCF_API_BASE.includes('onrender.com') || DCF_API_BASE.includes('railway.app');
+        const timeout = isProductionBackend ? 90000 : 30000; // 90s for production, 30s for local
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
         // Call AI NPV endpoint to fetch comprehensive financial data
         const response = await fetch(apiUrl, {
             method: 'POST',
             mode: 'cors',
             credentials: 'omit',
+            signal: controller.signal,
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
@@ -78,6 +94,7 @@ async function fetchDCFCompanyData() {
             body: JSON.stringify({ ticker: ticker })
         });
 
+        clearTimeout(timeoutId);
         console.log('Response status:', response.status, response.statusText);
 
         if (!response.ok) {
@@ -118,24 +135,52 @@ async function fetchDCFCompanyData() {
             message: error.message,
             stack: error.stack,
             apiBase: DCF_API_BASE,
-            apiUrl: `${DCF_API_BASE}/api/ai-npv/fetch-dcf-financials`
+            apiUrl: `${DCF_API_BASE}/api/ai-npv/fetch-dcf-financials`,
+            backendStatus: window.BACKEND_STATUS,
+            backendConnected: window.BACKEND_CONNECTED
         });
         
         // Provide more helpful error message
         let errorMessage = error.message;
-        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+        let showWakeButton = false;
+        
+        if (error.name === 'AbortError') {
+            errorMessage = `Request timed out after ${timeout/1000} seconds. `;
+            if (isProductionBackend) {
+                errorMessage += 'Backend may be sleeping (Render free tier). ';
+                showWakeButton = true;
+            } else {
+                errorMessage += 'Backend may be unreachable.';
+            }
+        } else if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
             errorMessage = `Cannot connect to backend at ${DCF_API_BASE}. `;
             if (window.BACKEND_STATUS === 'unverified' || window.BACKEND_STATUS === 'disconnected') {
                 errorMessage += 'Backend may not be deployed or is sleeping. ';
                 if (DCF_API_BASE.includes('onrender.com')) {
-                    errorMessage += 'If using Render free tier, the backend may take 30-60 seconds to wake up.';
+                    errorMessage += 'If using Render free tier, the backend may take 60-90 seconds to wake up on first request.';
+                    showWakeButton = true;
                 }
             } else {
                 errorMessage += 'Please check if the backend is running.';
             }
         }
         
-        showDCFError(`Failed to fetch financial data: ${errorMessage}. You can enter values manually.`);
+        // Show error with wake button if needed
+        const errorHtml = `
+            <div style="max-width: 500px;">
+                <strong>Failed to fetch financial data</strong><br>
+                <small>${errorMessage}</small><br>
+                ${showWakeButton ? `
+                <button onclick="window.wakeBackend && window.wakeBackend(); setTimeout(() => { fetchDCFCompanyData(); }, 2000);" 
+                        style="margin-top: 8px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    🔄 Wake Backend & Retry
+                </button>
+                ` : ''}
+                <br><small style="color: #666;">You can enter values manually below.</small>
+            </div>
+        `;
+        
+        showDCFError(errorHtml);
     } finally {
         button.innerHTML = originalText;
         button.disabled = false;
