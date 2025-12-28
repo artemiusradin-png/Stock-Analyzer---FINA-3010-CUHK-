@@ -1,9 +1,11 @@
 [build]
   publish = "frontend/public"
   command = "echo 'Static site - no build needed'"
+  ignore = "git diff --quiet HEAD^ HEAD -- ."
   
 # Note: This is a static site deployment - no dependencies needed
 # requirements.txt has been moved to backend/ and runtime.txt removed to prevent Netlify from installing Python dependencies
+# Dockerfile is ignored via .netlifyignore - it's only for Render backend deployment
 
 # API proxy redirects - proxy /api/* requests to backend
 # Note: Frontend makes direct calls to backend URL, but this provides a fallback option

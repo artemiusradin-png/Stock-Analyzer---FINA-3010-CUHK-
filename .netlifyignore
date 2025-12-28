@@ -7,3 +7,10 @@ __pycache__/
 *.pyc
 .python-version
 
+# Ignore Dockerfile - Netlify doesn't support Docker builds for static sites
+# This Dockerfile is for Render backend deployment only
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+
