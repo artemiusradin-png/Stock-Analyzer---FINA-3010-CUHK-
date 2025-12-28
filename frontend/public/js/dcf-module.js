@@ -108,11 +108,6 @@ async function fetchDCFCompanyData() {
         }
 
         const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || 'Failed to fetch financial data');
-        }
-
         console.log('Financial data received:', data);
 
         // Handle ticker disambiguation if multiple matches
