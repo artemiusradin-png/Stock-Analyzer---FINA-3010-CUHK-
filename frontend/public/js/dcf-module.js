@@ -5,13 +5,35 @@
 
 // API base URL
 function getDCFAPIBase() {
-    if (window.API_BASE_URL) return window.API_BASE_URL.replace(/\/api$/, '');
+    // Priority: window.API_BASE_URL (set by detectBackend()) > meta tag > default
+    if (window.API_BASE_URL) {
+        const base = window.API_BASE_URL.replace(/\/api$/, '');
+        console.log('DCF API Base (from window.API_BASE_URL):', base);
+        return base;
+    }
+    
+    // Try production meta tag first
+    const productionMeta = document.querySelector('meta[name="api-base-production"]')?.getAttribute('content');
+    if (productionMeta) {
+        const base = productionMeta.trim().replace(/\/$/, '').replace(/\/api$/, '');
+        console.log('DCF API Base (from production meta):', base);
+        return base;
+    }
+    
+    // Fallback to dcf-api-base meta tag
     const metaBase = document.querySelector('meta[name="dcf-api-base"]')?.getAttribute('content');
-    if (metaBase) return metaBase.replace(/\/api$/, '');
+    if (metaBase) {
+        const base = metaBase.replace(/\/api$/, '');
+        console.log('DCF API Base (from dcf-api-base meta):', base);
+        return base;
+    }
+    
+    console.warn('DCF API Base: Using default localhost:8000');
     return 'http://localhost:8000';
 }
 
 const DCF_API_BASE = getDCFAPIBase();
+console.log('DCF_API_BASE initialized to:', DCF_API_BASE);
 
 // Track last DCF result for inline sensitivity
 let lastDCFResult = null;
@@ -40,13 +62,33 @@ async function fetchDCFCompanyData() {
 
     try {
         console.log('Fetching DCF company data for:', ticker);
+        console.log('Using API base:', DCF_API_BASE);
+        const apiUrl = `${DCF_API_BASE}/api/ai-npv/fetch-dcf-financials`;
+        console.log('Full API URL:', apiUrl);
 
         // Call AI NPV endpoint to fetch comprehensive financial data
-        const response = await fetch(`${DCF_API_BASE}/api/ai-npv/fetch-dcf-financials`, {
+        const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            mode: 'cors',
+            credentials: 'omit',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
             body: JSON.stringify({ ticker: ticker })
         });
+
+        console.log('Response status:', response.status, response.statusText);
+
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
+            }
+            throw new Error(errorData.detail || 'Failed to fetch financial data');
+        }
 
         const data = await response.json();
 
@@ -71,7 +113,29 @@ async function fetchDCFCompanyData() {
 
     } catch (error) {
         console.error('DCF data fetch error:', error);
-        showDCFError(`Failed to fetch financial data: ${error.message}. You can enter values manually.`);
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            apiBase: DCF_API_BASE,
+            apiUrl: `${DCF_API_BASE}/api/ai-npv/fetch-dcf-financials`
+        });
+        
+        // Provide more helpful error message
+        let errorMessage = error.message;
+        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+            errorMessage = `Cannot connect to backend at ${DCF_API_BASE}. `;
+            if (window.BACKEND_STATUS === 'unverified' || window.BACKEND_STATUS === 'disconnected') {
+                errorMessage += 'Backend may not be deployed or is sleeping. ';
+                if (DCF_API_BASE.includes('onrender.com')) {
+                    errorMessage += 'If using Render free tier, the backend may take 30-60 seconds to wake up.';
+                }
+            } else {
+                errorMessage += 'Please check if the backend is running.';
+            }
+        }
+        
+        showDCFError(`Failed to fetch financial data: ${errorMessage}. You can enter values manually.`);
     } finally {
         button.innerHTML = originalText;
         button.disabled = false;
