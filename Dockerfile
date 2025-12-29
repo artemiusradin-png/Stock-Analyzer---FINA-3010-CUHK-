@@ -14,11 +14,14 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements from backend directory
 COPY backend/requirements-production.txt .
 
-# Install Python dependencies
+# Install Python dependencies globally (not --user, so appuser can access them)
 RUN pip install --no-cache-dir -r requirements-production.txt
 
 # Copy application code from backend directory
 COPY backend/app/ ./app/
+
+# Add Python packages to PATH (in case any scripts are in /root/.local/bin)
+ENV PATH=/usr/local/bin:/root/.local/bin:$PATH
 
 # Expose port
 EXPOSE 8000
