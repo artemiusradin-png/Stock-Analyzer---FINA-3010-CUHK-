@@ -14,16 +14,16 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements from backend directory
 COPY backend/requirements-production.txt .
 
-# Install Python dependencies globally to /usr/local (not /root/.local)
-# This ensures scripts are accessible without PATH issues
-RUN pip install --no-cache-dir --prefix=/usr/local -r requirements-production.txt || \
-    pip install --no-cache-dir -r requirements-production.txt
+# Install Python dependencies
+# Note: pip installs scripts to /root/.local/bin by default when run as root
+# We'll add this to PATH and use python -m to avoid permission issues
+RUN pip install --no-cache-dir -r requirements-production.txt
 
 # Copy application code from backend directory
 COPY backend/app/ ./app/
 
-# Ensure PATH includes standard locations
-ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/root/.local/bin:$PATH
+# Add /root/.local/bin to PATH so gunicorn and other scripts are found
+ENV PATH=/root/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH
 
 # Expose port
 EXPOSE 8000
