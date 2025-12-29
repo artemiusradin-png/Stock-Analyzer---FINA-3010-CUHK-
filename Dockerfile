@@ -14,14 +14,16 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements from backend directory
 COPY backend/requirements-production.txt .
 
-# Install Python dependencies globally (not --user, so appuser can access them)
-RUN pip install --no-cache-dir -r requirements-production.txt
+# Install Python dependencies globally to /usr/local (not /root/.local)
+# This ensures scripts are accessible without PATH issues
+RUN pip install --no-cache-dir --prefix=/usr/local -r requirements-production.txt || \
+    pip install --no-cache-dir -r requirements-production.txt
 
 # Copy application code from backend directory
 COPY backend/app/ ./app/
 
-# Add Python packages to PATH (in case any scripts are in /root/.local/bin)
-ENV PATH=/usr/local/bin:/root/.local/bin:$PATH
+# Ensure PATH includes standard locations
+ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/root/.local/bin:$PATH
 
 # Expose port
 EXPOSE 8000
@@ -32,7 +34,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run with Gunicorn for production
-# Use python -m gunicorn to ensure it's found in PATH
-CMD ["python", "-m", "gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--access-logfile", "-", "--error-logfile", "-"]
+# Use full path to python and python -m to avoid PATH issues
+CMD ["/usr/local/bin/python", "-m", "gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--access-logfile", "-", "--error-logfile", "-"]
 
 
