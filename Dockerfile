@@ -15,12 +15,10 @@ RUN apt-get update && apt-get install -y \
 COPY backend/requirements-production.txt .
 
 # Install Python dependencies
-# Install to /usr/local so scripts are accessible without PATH issues
-RUN pip install --no-cache-dir --target=/usr/local/lib/python3.11/site-packages -r requirements-production.txt || \
-    pip install --no-cache-dir -r requirements-production.txt
+RUN pip install --no-cache-dir -r requirements-production.txt
 
-# Ensure gunicorn is accessible - create symlink if needed
-RUN which gunicorn || (pip install --no-cache-dir gunicorn && ln -sf /root/.local/bin/gunicorn /usr/local/bin/gunicorn 2>/dev/null || true)
+# Ensure gunicorn module is accessible (python -m gunicorn works regardless of script location)
+RUN python -c "import gunicorn" || pip install --no-cache-dir gunicorn
 
 # Copy application code from backend directory
 COPY backend/app/ ./app/
