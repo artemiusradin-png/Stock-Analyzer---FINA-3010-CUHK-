@@ -1,0 +1,295 @@
+.container {
+  min-height: 100vh;
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-bottom: 3rem;
+}
+
+.header {
+  padding: 2.5rem 2rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--text);
+}
+
+.header p {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin: 0;
+  max-width: 720px;
+  line-height: 1.6;
+}
+
+.logo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.12em;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.mainContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 0;
+}
+
+.addSection {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: var(--shadow-md);
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.input {
+  flex: 1;
+  padding: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: var(--surface-2);
+}
+
+.addButton,
+.refreshButton {
+  padding: 0.95rem 1.4rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+
+.addButton {
+  background: #0f172a;
+  color: #fff;
+}
+
+.addButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.refreshButton {
+  background: #111827;
+  color: #fff;
+}
+
+.refreshButton:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.refreshButtonSmall {
+  /* Keep the same vertical height as primary buttons, slightly narrower horizontally */
+  padding: 0.95rem 1.1rem;
+  font-size: 0.84rem;
+  min-width: 110px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  letter-spacing: 0.01em;
+}
+
+.refreshButtonSmall:hover:not(:disabled) {
+  background: var(--surface-2);
+  opacity: 1;
+}
+
+.addButton:disabled,
+.refreshButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.watchlistTable {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow-x: auto;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+.watchlistTable table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.watchlistTable th {
+  text-align: left;
+  padding: 0.9rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: #f1f5f9;
+}
+
+.watchlistTable td {
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.watchlistTable tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.scoreCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 100px;
+}
+
+.scoreValue {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.scoreBar {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.scoreFill {
+  height: 100%;
+  background: linear-gradient(90deg, #111827 0%, #1f2937 100%);
+  transition: width 0.3s;
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.badge.strongbuy,
+.badge.buy,
+.badge.hold,
+.badge.sell,
+.badge.strongsell {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.flags {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.flag {
+  font-size: 1rem;
+  cursor: help;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.addToPortfolioButton {
+  padding: 0.4rem 0.9rem;
+  background: #f8fafc;
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.addToPortfolioButton:hover {
+  background: #e5e7eb;
+}
+
+.removeButton {
+  padding: 0.4rem 0.9rem;
+  background: #f8fafc;
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  background: #e5e7eb;
+}
+
+.infoBox {
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.infoBox h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: #0f0f0f;
+}
+
+.infoBox p {
+  margin: 0 0 0.5rem;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.infoBox ul {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+  color: #374151;
+  font-size: 0.875rem;
+  line-height: 1.8;
+}

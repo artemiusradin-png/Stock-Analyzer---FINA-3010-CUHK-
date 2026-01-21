@@ -1,0 +1,364 @@
+/* Project NPV - Light Theme Design */
+
+.container {
+  min-height: 100vh;
+  background: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem;
+  border-bottom: 1px solid #e5e5e5;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: #0f0f0f;
+  letter-spacing: -0.02em;
+}
+
+.header p {
+  color: #5a5a5a;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f0f0f;
+  letter-spacing: 0.05em;
+}
+
+.navTabs {
+  display: flex;
+  gap: 0;
+  padding: 0 2rem;
+  border-bottom: 2px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.tab,
+.tabActive {
+  padding: 1rem 2rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #5a5a5a;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tab:hover {
+  color: #0f0f0f;
+  background: #f9fafb;
+}
+
+.tabActive {
+  color: #0f0f0f;
+  border-bottom-color: #0f0f0f;
+  font-weight: 600;
+}
+
+.subNav {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.subTab,
+.subTabActive {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #5a5a5a;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.subTab:hover {
+  background: #edf2f7;
+  color: #0f0f0f;
+}
+
+.subTabActive {
+  color: #0f0f0f;
+  background: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.mainContent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.calculatorSection,
+.resultsSection {
+  background: #fafafa;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #1a1a1a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.calculatorSection h2,
+.resultsSection h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #0f0f0f;
+}
+
+.calculatorSection p {
+  color: #5a5a5a;
+  font-size: 0.875rem;
+  margin: 0 0 2rem;
+  line-height: 1.5;
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f0f0f;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #0f0f0f;
+  transition: all 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #0f0f0f;
+  box-shadow: 0 0 0 3px rgba(15, 15, 15, 0.1);
+}
+
+.formGroup small {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.cashFlows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cashFlowRow {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.cashFlowRow span {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #5a5a5a;
+}
+
+.addButton {
+  padding: 0.5rem 1rem;
+  background: #ffffff;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #0f0f0f;
+  transition: all 0.2s;
+}
+
+.addButton:hover {
+  background: #f9fafb;
+  border-color: #0f0f0f;
+}
+
+.calculateButton {
+  width: 100%;
+  padding: 1rem;
+  background: #0f0f0f;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calculateButton:hover:not(:disabled) {
+  background: #1a1a1a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.calculateButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.placeholderIcon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.placeholder h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f0f0f;
+  margin: 0 0 0.5rem;
+}
+
+.placeholder p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.resultCard {
+  padding: 2rem;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.npvValue {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #0f0f0f;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.npvLabel {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.success {
+  color: #10b981;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  background: #ecfdf5;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.error {
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  background: #fef2f2;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.warning {
+  color: #f59e0b;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  background: #fffbeb;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .mainContent {
+    grid-template-columns: 1fr;
+  }
+  
+  .header {
+    padding: 1.5rem;
+  }
+  
+  .navTabs,
+  .subNav {
+    padding: 0 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .mainContent {
+    padding: 1rem;
+  }
+  
+  .calculatorSection,
+  .resultsSection {
+    padding: 1.5rem;
+  }
+  
+  .cashFlowRow {
+    grid-template-columns: 60px 1fr;
+  }
+}

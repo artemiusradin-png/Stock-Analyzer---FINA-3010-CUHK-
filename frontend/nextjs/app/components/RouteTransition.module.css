@@ -1,0 +1,31 @@
+.wrap {
+  animation-duration: 220ms;
+  animation-timing-function: ease;
+  will-change: opacity, transform;
+}
+
+.enter {
+  animation-name: routeEnter;
+}
+
+.idle {
+  animation-name: none;
+}
+
+@keyframes routeEnter {
+  from {
+    opacity: 0.01;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrap {
+    animation: none;
+  }
+}
+
