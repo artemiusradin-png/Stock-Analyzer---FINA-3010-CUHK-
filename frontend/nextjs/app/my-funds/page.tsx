@@ -28,7 +28,7 @@ export default function MyFundsPage() {
 
       const data = await getFundsSummary({
         fx_base_currency: baseCurrency,
-        fx_rates: null,
+        fx_rates: undefined,
       });
 
       setSummary(data);
@@ -308,8 +308,8 @@ function InstitutionGroup({
 function AccountCard({ account, institution }: { account: AccountWithBalance; institution: string }) {
   const { account_name, account_type, currency, latest_balance, status, mask } = account;
   const balance = latest_balance?.current_balance ?? null;
-  const availableBalance = latest_balance?.available_balance;
-  const holdingsValue = latest_balance?.holdings_value;
+  const availableBalance = latest_balance?.available_balance ?? null;
+  const holdingsValue = latest_balance?.holdings_value ?? null;
   const updated = latest_balance ? formatRelativeTime(new Date(latest_balance.as_of)) : '—';
 
   const typeClass = getAccountTypeClass(account_type);

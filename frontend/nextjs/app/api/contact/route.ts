@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'contact@arqam.com',
           to: RECIPIENT_EMAIL,
-          replyTo: email,
+          reply_to: email,
           subject: `Contact Form: ${name}`,
           html: `
             <h2>New Contact Form Submission</h2>

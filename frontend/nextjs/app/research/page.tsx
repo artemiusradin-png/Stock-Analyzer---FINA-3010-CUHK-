@@ -751,10 +751,10 @@ function SentimentTab({ ticker, data }: { ticker: string; data: any }) {
                 <span style={{ color: '#6b7280' }}>{yahooCount} article{yahooCount !== 1 ? 's' : ''}</span>
               </div>
             )}
-            {otherSources.map(([name, count]: [string, number]) => (
+            {otherSources.map(([name, count]) => (
               <div key={name} className={styles.chip}>
                 <span style={{ fontWeight: 600, color: '#374151' }}>{name}:</span>
-                <span style={{ color: '#6b7280' }}>{count} article{count !== 1 ? 's' : ''}</span>
+                <span style={{ color: '#6b7280' }}>{count as number} article{(count as number) !== 1 ? 's' : ''}</span>
               </div>
             ))}
           </div>

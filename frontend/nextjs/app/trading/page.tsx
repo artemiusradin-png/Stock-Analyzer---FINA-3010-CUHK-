@@ -246,12 +246,12 @@ export default function TradingPage() {
     localStorage.setItem('fina3010_trades', JSON.stringify(newTrades));
   };
 
-  const addTrade = (trade: Omit<Trade, 'id'>) => {
+  const addTrade = (trade: Omit<Trade, 'id' | 'totalCost'> & Partial<Pick<Trade, 'totalCost'>>) => {
     const newTrade: Trade = {
       ...trade,
       id: Date.now().toString(),
-      commission: 5, // $5 per trade as per rules
-      totalCost: trade.quantity * trade.price + 5,
+      commission: trade.commission ?? 5, // $5 per trade as per rules
+      totalCost: trade.totalCost ?? (trade.quantity * trade.price + (trade.commission ?? 5)),
       status: trade.status || 'open',
     };
     saveTrades([...trades, newTrade]);
@@ -501,7 +501,7 @@ export default function TradingPage() {
   );
 }
 
-function AddTradeForm({ onSubmit, onCancel }: { onSubmit: (trade: Omit<Trade, 'id'>) => void; onCancel: () => void }) {
+function AddTradeForm({ onSubmit, onCancel }: { onSubmit: (trade: Omit<Trade, 'id' | 'totalCost'> & Partial<Pick<Trade, 'totalCost'>>) => void; onCancel: () => void }) {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     ticker: '',
@@ -554,6 +554,7 @@ function AddTradeForm({ onSubmit, onCancel }: { onSubmit: (trade: Omit<Trade, 'i
     e.preventDefault();
     onSubmit({
       ...formData,
+      commission: 5, // Default commission per rules
       plannedEntry: formData.plannedEntry ? Number(formData.plannedEntry) : undefined,
       plannedStop: formData.plannedStop ? Number(formData.plannedStop) : undefined,
       plannedTarget: formData.plannedTarget ? Number(formData.plannedTarget) : undefined,

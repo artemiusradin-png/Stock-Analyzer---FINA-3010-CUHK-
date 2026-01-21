@@ -101,7 +101,7 @@ Respond with ONLY valid JSON, no markdown, no explanations.`;
       throw new Error('No response from OpenAI');
     }
 
-    let parsedTrade: TradeDescription;
+    let parsedTrade: any;
     try {
       parsedTrade = JSON.parse(content);
     } catch (error) {
@@ -116,10 +116,10 @@ Respond with ONLY valid JSON, no markdown, no explanations.`;
       ticker: parsedTrade.ticker && typeof parsedTrade.ticker === 'string'
         ? parsedTrade.ticker.toUpperCase().trim()
         : undefined,
-      orderType: ['market', 'limit_buy', 'limit_sell', 'stop_loss'].includes(parsedTrade.orderType)
+      orderType: parsedTrade.orderType && ['market', 'limit_buy', 'limit_sell', 'stop_loss'].includes(parsedTrade.orderType)
         ? parsedTrade.orderType
         : undefined,
-      action: ['buy', 'sell', 'short_sell'].includes(parsedTrade.action)
+      action: parsedTrade.action && ['buy', 'sell', 'short_sell'].includes(parsedTrade.action)
         ? parsedTrade.action
         : undefined,
       quantity: typeof parsedTrade.quantity === 'number' && parsedTrade.quantity > 0

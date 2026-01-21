@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       source: article.source || 'Unknown',
       datetime: article.datetime,
       url: article.url,
+      _source_type: article._source_type,
     }));
 
     // Compute source breakdown - separate Finnhub from original sources
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
     const sentimentResult = SentimentScoringEngine.scoreSentiment(newsArticles);
     
     // Optionally enhance with OpenAI for richer analysis (non-blocking)
-    let openAIAnalysis = null;
+    let openAIAnalysis: any = null;
     try {
       const openAIService = new OpenAIService();
       // Use OpenAI in parallel with timeout (non-blocking enhancement)

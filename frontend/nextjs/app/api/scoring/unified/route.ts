@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
     // Fallback DCF if valuation endpoint unavailable
     if (!dcfUpsideDownside && profileData.status === 'fulfilled' && quoteData.status === 'fulfilled') {
       try {
-        const profile = profileData.value;
+        const profileResponse = profileData.value;
+        const profile = profileResponse.ok ? await profileResponse.json() : null;
         const quote = quoteData.value;
         const price = quote?.c || quote?.pc || 0;
         const marketCap = profile?.marketCap || 0;
@@ -467,7 +468,7 @@ export async function POST(request: NextRequest) {
 
     // Quality metrics - fetch fundamental metrics (using ChatGPT API with timeout)
     let fundamentalMetrics: any = {};
-    const profile = profileData.status === 'fulfilled' ? profileData.value : null;
+    const profile = (profileData.status === 'fulfilled' && profileData.value.ok) ? await profileData.value.json() : null;
     const quote = quoteData.status === 'fulfilled' ? quoteData.value : null;
     const stockPrices = stockPricesData.status === 'fulfilled' ? stockPricesData.value : [];
     

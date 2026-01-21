@@ -20,8 +20,19 @@ interface Message {
   trade?: Trade;
 }
 
+interface TradeInput {
+  date: string;
+  ticker: string;
+  orderType: 'market' | 'limit_buy' | 'limit_sell' | 'stop_loss';
+  action: 'buy' | 'sell' | 'short_sell';
+  quantity: number;
+  price: number;
+  commission: number;
+  notes?: string;
+}
+
 interface TradeAssistantProps {
-  onAddTrade: (trade: Omit<Trade, 'id'>) => void;
+  onAddTrade: (trade: TradeInput) => void;
   onClose: () => void;
 }
 
@@ -117,12 +128,12 @@ export default function TradeAssistant({ onAddTrade, onClose }: TradeAssistantPr
     }
 
     onAddTrade({
-      date: pendingTrade.date,
-      ticker: pendingTrade.ticker,
+      date: pendingTrade.date!,
+      ticker: pendingTrade.ticker!,
       orderType: pendingTrade.orderType || 'market',
-      action: pendingTrade.action,
-      quantity: pendingTrade.quantity,
-      price: pendingTrade.price,
+      action: pendingTrade.action!,
+      quantity: pendingTrade.quantity!,
+      price: pendingTrade.price!,
       commission: pendingTrade.commission || 5,
       notes: pendingTrade.notes,
     });
