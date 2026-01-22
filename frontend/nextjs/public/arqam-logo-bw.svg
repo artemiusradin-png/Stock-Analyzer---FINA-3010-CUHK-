@@ -14,11 +14,11 @@
   </g>
 
   <!-- Vertical divider -->
-  <line x1="46" y1="8" x2="46" y2="24" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="40" y1="8" x2="40" y2="24" stroke="#e0e0e0" stroke-width="1"/>
 
   <!-- ARQAM text - modern sans-serif, vertically centered -->
   <g id="text">
-    <text x="54" y="21" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" letter-spacing="1.5" fill="#1a1a1a">
+    <text x="46" y="21" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" letter-spacing="1.5" fill="#1a1a1a">
       ARQAM
     </text>
   </g>
