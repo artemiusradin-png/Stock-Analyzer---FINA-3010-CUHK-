@@ -1,24 +1,24 @@
-<svg width="180" height="40" viewBox="0 0 180 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Modern geometric icon -->
-  <g id="icon">
+<svg width="180" height="32" viewBox="0 0 180 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Modern geometric icon - centered vertically -->
+  <g id="icon" transform="translate(0, 6)">
     <!-- Stylized chart bars with minimalist design -->
-    <rect x="8" y="22" width="5" height="14" rx="1" fill="#1a1a1a"/>
-    <rect x="15" y="14" width="5" height="22" rx="1" fill="#1a1a1a"/>
-    <rect x="22" y="18" width="5" height="18" rx="1" fill="#1a1a1a"/>
-    <rect x="29" y="8" width="5" height="28" rx="1" fill="#1a1a1a"/>
-    <rect x="36" y="12" width="5" height="24" rx="1" fill="#1a1a1a"/>
+    <rect x="8" y="10" width="4" height="10" rx="1" fill="#1a1a1a"/>
+    <rect x="14" y="5" width="4" height="15" rx="1" fill="#1a1a1a"/>
+    <rect x="20" y="7" width="4" height="13" rx="1" fill="#1a1a1a"/>
+    <rect x="26" y="2" width="4" height="18" rx="1" fill="#1a1a1a"/>
+    <rect x="32" y="4" width="4" height="16" rx="1" fill="#1a1a1a"/>
 
     <!-- Growth arrow overlay -->
-    <path d="M10 24 L17 16 L24 20 L31 10 L38 14" stroke="#1a1a1a" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M35 10 L38 14 L34 14 Z" fill="#1a1a1a"/>
+    <path d="M10 12 L16 7 L22 9 L28 4 L34 6" stroke="#1a1a1a" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M31 4 L34 6 L31 6 Z" fill="#1a1a1a"/>
   </g>
 
   <!-- Vertical divider -->
-  <line x1="50" y1="8" x2="50" y2="32" stroke="#e0e0e0" stroke-width="1"/>
+  <line x1="46" y1="8" x2="46" y2="24" stroke="#e0e0e0" stroke-width="1"/>
 
-  <!-- ARQAM text - modern sans-serif -->
+  <!-- ARQAM text - modern sans-serif, vertically centered -->
   <g id="text">
-    <text x="58" y="26" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" letter-spacing="1.5" fill="#1a1a1a">
+    <text x="54" y="21" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" letter-spacing="1.5" fill="#1a1a1a">
       ARQAM
     </text>
   </g>
