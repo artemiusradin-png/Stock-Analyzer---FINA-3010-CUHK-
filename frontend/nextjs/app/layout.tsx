@@ -17,14 +17,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'ARQAM - Financial Analytics Platform',
     description: 'Advanced portfolio management, stock research, and trading analysis powered by AI',
-    images: ['/arqam-logo.svg'],
+    images: ['/api/og'],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ARQAM - Financial Analytics Platform',
     description: 'Advanced portfolio management, stock research, and trading analysis powered by AI',
-    images: ['/arqam-logo.svg'],
+    images: ['/api/og'],
   },
 };
 
