@@ -23,7 +23,7 @@ export default function Home() {
       >
         <div>
           <div style={{ marginBottom: '1.5rem' }}>
-            <img src="/arqam-logo-bw.svg" alt="ARQAM" style={{ height: '48px', width: 'auto' }} />
+            <img src="/arqam-logo-v2.svg" alt="ARQAM" style={{ height: '56px', width: 'auto' }} />
           </div>
           <p style={{ fontSize: '0.9rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: '#6b7280', marginBottom: '0.5rem' }}>
             FINA3010 / MarketWatch Simulation
