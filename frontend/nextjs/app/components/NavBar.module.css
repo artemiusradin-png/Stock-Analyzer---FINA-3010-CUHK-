@@ -30,8 +30,11 @@
 }
 
 .logoImage {
-  height: 36px;
+  height: 32px;
   width: auto;
+  display: block;
+  margin: 0;
+  vertical-align: middle;
 }
 
 .logoText {
