@@ -9,8 +9,23 @@ import Footer from './components/Footer';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ARQAM Portfolio Management',
-  description: 'Portfolio management and trading analysis system',
+  title: 'ARQAM - Financial Analytics Platform',
+  description: 'Advanced portfolio management, stock research, and trading analysis powered by AI',
+  icons: {
+    icon: '/favicon.svg',
+  },
+  openGraph: {
+    title: 'ARQAM - Financial Analytics Platform',
+    description: 'Advanced portfolio management, stock research, and trading analysis powered by AI',
+    images: ['/arqam-logo.svg'],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ARQAM - Financial Analytics Platform',
+    description: 'Advanced portfolio management, stock research, and trading analysis powered by AI',
+    images: ['/arqam-logo.svg'],
+  },
 };
 
 export default function RootLayout({
