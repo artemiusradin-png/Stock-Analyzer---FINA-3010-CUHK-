@@ -17,7 +17,7 @@ export default function NavBar() {
     <nav className={styles.navBar}>
       <div className={styles.navContent}>
         <Link href="/" className={styles.logo}>
-          <img src="/arqam-logo.svg" alt="ARQAM" className={styles.logoImage} />
+          <img src="/arqam-logo-bw.svg" alt="ARQAM" className={styles.logoImage} />
         </Link>
         
         <div className={styles.navLinks}>
