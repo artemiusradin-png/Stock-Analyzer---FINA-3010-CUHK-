@@ -26,7 +26,7 @@ function getRequestOrigin(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { ticker } = body;
+    const { ticker, skipDCF } = body;
 
     if (!ticker) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const fromDate30 = new Date();
     fromDate30.setDate(today.getDate() - 30);
     const fromDate60 = new Date();
-    fromDate60.setDate(today.getDate() - 60);
+    fromDate60.setDate(today.getDate() - 90);
 
     // Start all independent API calls in parallel
     const [
@@ -64,11 +64,13 @@ export async function POST(request: NextRequest) {
       marketPricesData,
     ] = await Promise.allSettled([
       // 1. DCF valuation
-      fetch(`${origin}/api/valuations/calculate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker }),
-      }),
+      skipDCF
+        ? Promise.resolve(null as any)
+        : fetch(`${origin}/api/valuations/calculate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticker }),
+          }),
       // 2. Company profile (use standardized endpoint for USD conversion)
       fetch(`${origin}/api/company/profile`, {
         method: 'POST',
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     // Process DCF data
-    if (valuationResponse.status === 'fulfilled' && valuationResponse.value.ok) {
+    if (!skipDCF && valuationResponse.status === 'fulfilled' && valuationResponse.value?.ok) {
       try {
         const valuation = await valuationResponse.value.json();
         if (
@@ -127,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fallback DCF if valuation endpoint unavailable
-    if (!dcfUpsideDownside && profileData.status === 'fulfilled' && quoteData.status === 'fulfilled') {
+    if (!skipDCF && !dcfUpsideDownside && profileData.status === 'fulfilled' && quoteData.status === 'fulfilled') {
       try {
         const profileResponse = profileData.value;
         const profile = profileResponse.ok ? await profileResponse.json() : null;
@@ -328,7 +330,7 @@ export async function POST(request: NextRequest) {
 
     // Momentum components calculator
     const computeMomentumScore = (prices: any[]): number | undefined => {
-      if (!prices || prices.length < 50) return undefined;
+      if (!prices || prices.length < 30) return undefined;
       const closes: number[] = prices.map(p => p.close);
       const vols: number[] = prices.map(p => p.volume ?? 0);
       const n = closes.length;
@@ -339,7 +341,8 @@ export async function POST(request: NextRequest) {
         return arr.slice(-len).reduce((a, b) => a + b, 0) / len;
       };
       const ma20 = ma(closes, 20);
-      const ma50 = ma(closes, 50);
+      const ma50 = ma(closes, 50); // Will be undefined if < 50 days
+      const ma30 = ma(closes, 30); // Fallback for shorter periods
       const volMa20 = ma(vols, 20);
 
       // RSI-14
@@ -370,7 +373,7 @@ export async function POST(request: NextRequest) {
       }
 
       const priceVsMa20 = ma20 ? (close - ma20) / ma20 : undefined;
-      const priceVsMa50 = ma50 ? (close - ma50) / ma50 : undefined;
+      const priceVsMa50 = (ma50 ?? ma30) ? (close - (ma50 ?? ma30)!) / (ma50 ?? ma30)! : undefined;
       const volumeTrend = volMa20 ? (vols[n - 1] - volMa20) / volMa20 : undefined;
 
       const components: number[] = [];

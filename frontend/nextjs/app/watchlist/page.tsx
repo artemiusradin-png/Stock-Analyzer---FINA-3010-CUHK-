@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './Watchlist.module.css';
 import AddToPortfolioModal from '../research/components/AddToPortfolioModal';
+import { getCachedResearch } from '@/lib/research-cache';
 
 interface WatchlistItem {
   ticker: string;
@@ -13,6 +14,8 @@ interface WatchlistItem {
   momentum: number | undefined;
   sentiment: number | undefined;
   quality: number | undefined;
+  dcf_implied_price?: number;
+  dcf_current_price?: number;
   flags: {
     high_fragility: boolean;
     high_risk: boolean;
@@ -29,6 +32,22 @@ export default function WatchlistPage() {
   const [selectedTicker, setSelectedTicker] = useState<string>('');
   const [currentPrice, setCurrentPrice] = useState<number | undefined>(undefined);
   const [hasAutoRefreshed, setHasAutoRefreshed] = useState(false);
+
+  const mergeCachedDcf = (items: WatchlistItem[]): WatchlistItem[] => {
+    return items.map((item) => {
+      const cachedDcf = getCachedResearch(item.ticker, 'dcf');
+      const cachedUpside = cachedDcf?.upside_downside;
+      const hasValidUpside =
+        cachedUpside !== undefined && cachedUpside !== null && isFinite(cachedUpside);
+
+      return {
+        ...item,
+        dcf_upside_pct: hasValidUpside ? cachedUpside : item.dcf_upside_pct,
+        dcf_implied_price: isFinite(cachedDcf?.implied_price) ? cachedDcf.implied_price : item.dcf_implied_price,
+        dcf_current_price: isFinite(cachedDcf?.current_price) ? cachedDcf.current_price : item.dcf_current_price,
+      };
+    });
+  };
 
   useEffect(() => {
     loadWatchlist();
@@ -65,7 +84,7 @@ export default function WatchlistPage() {
                 const response = await fetch('/api/scoring/unified', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ ticker: item.ticker }),
+                  body: JSON.stringify({ ticker: item.ticker, skipDCF: true }),
                 });
 
                 if (!response.ok) {
@@ -73,20 +92,23 @@ export default function WatchlistPage() {
                 }
 
                 const data = await response.json();
-                const dcfUpsidePct = data.dcf_upside_pct;
+                const cachedDcf = getCachedResearch(item.ticker, 'dcf');
+                const cachedUpside = cachedDcf?.upside_downside;
                 const isValidDcf =
-                  dcfUpsidePct !== null &&
-                  dcfUpsidePct !== undefined &&
-                  isFinite(dcfUpsidePct) &&
-                  dcfUpsidePct >= -90 &&
-                  dcfUpsidePct <= 500;
+                  cachedUpside !== null &&
+                  cachedUpside !== undefined &&
+                  isFinite(cachedUpside) &&
+                  cachedUpside >= -90 &&
+                  cachedUpside <= 500;
 
                 return {
                   ...item,
                   score: data.score?.overall_score ?? item.score,
                   recommendation: data.score?.recommendation ?? item.recommendation,
-                  dcf_upside: data.score?.components?.dcf_upside ?? item.dcf_upside,
-                  dcf_upside_pct: isValidDcf ? dcfUpsidePct : undefined,
+                  dcf_upside: cachedDcf?.upside_downside ?? item.dcf_upside,
+                  dcf_upside_pct: isValidDcf ? cachedUpside : item.dcf_upside_pct,
+                  dcf_implied_price: cachedDcf?.implied_price ?? item.dcf_implied_price,
+                  dcf_current_price: cachedDcf?.current_price ?? item.dcf_current_price,
                   momentum: data.score?.components?.momentum ?? item.momentum,
                   sentiment: data.score?.components?.sentiment ?? item.sentiment,
                   quality: data.score?.components?.quality ?? item.quality,
@@ -116,13 +138,15 @@ export default function WatchlistPage() {
   const loadWatchlist = () => {
     const saved = localStorage.getItem('fina3010_watchlist');
     if (saved) {
-      setWatchlist(JSON.parse(saved));
+      const parsed: WatchlistItem[] = JSON.parse(saved);
+      setWatchlist(mergeCachedDcf(parsed));
     }
   };
 
   const saveWatchlist = (items: WatchlistItem[]) => {
-    setWatchlist(items);
-    localStorage.setItem('fina3010_watchlist', JSON.stringify(items));
+    const merged = mergeCachedDcf(items);
+    setWatchlist(merged);
+    localStorage.setItem('fina3010_watchlist', JSON.stringify(merged));
   };
 
   const addToWatchlist = async () => {
@@ -133,26 +157,29 @@ export default function WatchlistPage() {
       const response = await fetch('/api/scoring/unified', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: newTicker.toUpperCase() }),
+        body: JSON.stringify({ ticker: newTicker.toUpperCase(), skipDCF: true }),
       });
 
       if (!response.ok) throw new Error('Failed to score ticker');
 
       const data = await response.json();
       // Validate DCF upside - filter out extreme/invalid values
-      const dcfUpsidePct = data.dcf_upside_pct;
-      const isValidDcf = dcfUpsidePct !== null && 
-                         dcfUpsidePct !== undefined && 
-                         isFinite(dcfUpsidePct) && 
-                         dcfUpsidePct >= -90 && 
-                         dcfUpsidePct <= 500;
+      const cachedDcf = getCachedResearch(newTicker, 'dcf');
+      const cachedUpside = cachedDcf?.upside_downside;
+      const isValidDcf = cachedUpside !== null && 
+                         cachedUpside !== undefined && 
+                         isFinite(cachedUpside) && 
+                         cachedUpside >= -90 && 
+                         cachedUpside <= 500;
       
       const newItem: WatchlistItem = {
         ticker: newTicker.toUpperCase(),
         score: data.score?.overall_score ?? 0,
         recommendation: data.score?.recommendation ?? 'neutral',
-        dcf_upside: data.score?.components?.dcf_upside,
-        dcf_upside_pct: isValidDcf ? dcfUpsidePct : undefined,
+        dcf_upside: cachedDcf?.upside_downside,
+        dcf_upside_pct: isValidDcf ? cachedUpside : undefined,
+        dcf_implied_price: cachedDcf?.implied_price,
+        dcf_current_price: cachedDcf?.current_price,
         momentum: data.score?.components?.momentum,
         sentiment: data.score?.components?.sentiment,
         quality: data.score?.components?.quality,
