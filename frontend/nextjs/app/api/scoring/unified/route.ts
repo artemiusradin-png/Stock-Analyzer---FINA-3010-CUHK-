@@ -412,10 +412,7 @@ export async function POST(request: NextRequest) {
       if (momScore !== undefined) {
         momentumScore = momScore;
       }
-      // Debug log to verify data quality
-      const closes = stockPricesArray.slice(-21); // last 21 closes to show 20 returns
-      console.log(`[Momentum Debug] ${ticker} (${label}) closes:`, closes);
-      
+
       riskMetrics = {
         max_drawdown: riskData.drawdown?.max_drawdown ?? 0.15,
         volatility:
