@@ -330,11 +330,7 @@ export async function POST(request: NextRequest) {
 
     // Momentum components calculator
     const computeMomentumScore = (prices: any[]): number | undefined => {
-      console.log(`[computeMomentumScore] prices.length: ${prices?.length}`);
-      if (!prices || prices.length < 30) {
-        console.log(`[computeMomentumScore] returning undefined - insufficient data`);
-        return undefined;
-      }
+      if (!prices || prices.length < 30) return undefined;
       const closes: number[] = prices.map(p => p.close);
       const vols: number[] = prices.map(p => p.volume ?? 0);
       const n = closes.length;
@@ -389,15 +385,10 @@ export async function POST(request: NextRequest) {
       if (volumeTrend !== undefined){ components.push(normRatio(volumeTrend));weights.push(0.15); }
       if (roc10 !== undefined)      { components.push(normROC(roc10));       weights.push(0.15); }
 
-      if (components.length === 0) {
-        console.log(`[computeMomentumScore] no components - returning undefined`);
-        return undefined;
-      }
+      if (components.length === 0) return undefined;
       const totalW = weights.reduce((a, b) => a + b, 0);
       const score = components.reduce((sum, c, idx) => sum + c * weights[idx], 0) / totalW;
-      const finalScore = clamp(score * 100, 0, 100);
-      console.log(`[computeMomentumScore] components:`, components, `weights:`, weights, `finalScore:`, finalScore);
-      return finalScore;
+      return clamp(score * 100, 0, 100);
     };
 
     // Helper to compute momentum/risk from price series
@@ -437,20 +428,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Try primary prices
-    console.log(`[Momentum] ${ticker} stockPricesData.status:`, stockPricesData.status);
-    if (stockPricesData.status === 'fulfilled') {
-      console.log(`[Momentum] ${ticker} stockPricesData.value.length:`, stockPricesData.value?.length);
-    } else if (stockPricesData.status === 'rejected') {
-      console.log(`[Momentum] ${ticker} stockPricesData.reason:`, (stockPricesData as any).reason?.message);
-    }
-
     if (stockPricesData.status === 'fulfilled' && stockPricesData.value.length > 0) {
       try {
         const stockPrices = stockPricesData.value;
         const marketPrices = marketPricesData.status === 'fulfilled' ? marketPricesData.value : [];
-        console.log(`[Momentum] ${ticker} calling processPrices with ${stockPrices.length} prices`);
         processPrices(stockPrices, marketPrices, 'primary');
-        console.log(`[Momentum] ${ticker} after processPrices, momentumScore:`, momentumScore);
       } catch (error) {
         console.warn('Risk calculation failed:', error);
       }
