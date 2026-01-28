@@ -1,9 +1,9 @@
 {
   "framework": "nextjs",
-  "installCommand": "cd frontend/nextjs && npm install",
-  "buildCommand": "cd frontend/nextjs && npm run build",
-  "devCommand": "cd frontend/nextjs && npm run dev",
-  "outputDirectory": "frontend/nextjs/.next",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "outputDirectory": ".next",
   "rewrites": [
     {
       "source": "/api/:path*",
