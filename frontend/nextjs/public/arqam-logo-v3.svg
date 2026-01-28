@@ -1,0 +1,26 @@
+<svg width="200" height="48" viewBox="0 0 200 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hexagonal mark representing precision and data structure -->
+  <g transform="translate(6, 4)">
+    <!-- Outer hexagon frame -->
+    <path d="M20 2 L36 11 L36 29 L20 38 L4 29 L4 11 Z"
+          fill="none" stroke="#0f172a" stroke-width="2.2" stroke-linejoin="round"/>
+
+    <!-- Upward trending bars inside hexagon -->
+    <rect x="10" y="22" width="5" height="12" rx="1.2" fill="#0f172a"/>
+    <rect x="17.5" y="17" width="5" height="17" rx="1.2" fill="#0f172a"/>
+    <rect x="25" y="12" width="5" height="22" rx="1.2" fill="#0f172a"/>
+
+    <!-- Pulse/signal line at top -->
+    <path d="M10 10 L14 10 L17 6 L20 13 L23 8 L26 10 L30 10"
+          stroke="#0f172a" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- ARQAM wordmark with modern spacing -->
+  <text x="56" y="32" font-family="system-ui, -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif"
+        font-size="26" font-weight="700" letter-spacing="3" fill="#0f172a">
+    ARQAM
+  </text>
+
+  <!-- Subtle underline accent -->
+  <rect x="56" y="37" width="52" height="2" rx="1" fill="#0f172a" opacity="0.15"/>
+</svg>
